@@ -213,7 +213,7 @@ AI-Stock-Intelligence-System/
 Clone the repository
 
 ```bash
-git clone https://github.com/your-username/AI-Stock-Intelligence-System.git
+git clone https://github.com/KunalxKushwaha/AI-Stock-Intelligence-System.git
 ```
 
 Move into the project
