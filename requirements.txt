@@ -1,0 +1,93 @@
+# ==========================
+# Core
+# ==========================
+numpy
+pandas
+scipy
+
+# ==========================
+# Machine Learning
+# ==========================
+scikit-learn
+xgboost
+tensorflow
+joblib
+
+# ==========================
+# Deep Learning
+# ==========================
+torch
+torchvision
+torchaudio
+
+# ==========================
+# NLP
+# ==========================
+transformers
+sentencepiece
+tokenizers
+datasets
+
+# ==========================
+# Financial Data
+# ==========================
+yfinance
+pandas-datareader
+
+# ==========================
+# Technical Indicators
+# ==========================
+ta
+
+# ==========================
+# Visualization
+# ==========================
+matplotlib
+plotly
+
+# ==========================
+# Backend
+# ==========================
+fastapi
+uvicorn
+python-multipart
+
+# ==========================
+# Database
+# ==========================
+pymongo
+motor
+
+# ==========================
+# HTTP Requests
+# ==========================
+requests
+httpx
+
+# ==========================
+# Environment
+# ==========================
+python-dotenv
+
+# ==========================
+# Data Validation
+# ==========================
+pydantic
+
+# ==========================
+# Scheduling
+# ==========================
+apscheduler
+
+# ==========================
+# Utilities
+# ==========================
+tqdm
+rich
+
+# ==========================
+# Jupyter
+# ==========================
+jupyter
+notebook
+ipykernel
