@@ -71,19 +71,139 @@ These inputs will be combined to generate data-driven predictions and actionable
 ```
 AI-Stock-Intelligence-System/
 
-├── backend/
-├── frontend/
-├── ml/
-├── sentiment_analysis/
-├── fake_news_detection/
-├── recommendation_engine/
-├── chatbot/
-├── data_pipeline/
-├── database/
-├── deployment/
+│
+├── README.md
+├── LICENSE
+├── .gitignore
+├── docker-compose.yml
+├── requirements.txt
+├── package.json
+├── .env.example
+│
 ├── docs/
+│   ├── SRS.md
+│   ├── Architecture.md
+│   ├── API_Documentation.md
+│   ├── Database_Design.md
+│   ├── ML_Pipeline.md
+│   └── Meeting_Notes.md
+│
+├── backend/
+│   ├── app/
+│   │
+│   ├── api/
+│   │
+│   ├── core/
+│   │
+│   ├── services/
+│   │
+│   ├── models/
+│   │
+│   ├── schemas/
+│   │
+│   ├── database/
+│   │
+│   ├── middleware/
+│   │
+│   ├── utils/
+│   │
+│   ├── scheduler/
+│   │
+│   └── main.py
+│   │
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │
+│   ├── components/
+│   ├── pages/
+│   ├── hooks/
+│   ├── services/
+│   ├── layouts/
+│   ├── assets/
+│   ├── contexts/
+│   ├── utils/
+│   ├── styles/
+│   └── App.tsx
+│
+├── ml/
+│   ├── datasets/
+│   │
+│   ├── preprocessing/
+│   │
+│   ├── feature_engineering/
+│   │
+│   ├── models/
+│   │
+│   ├── training/
+│   │
+│   ├── evaluation/
+│   │
+│   ├── inference/
+│   │
+│   ├── explainability/
+│   │
+│   └── notebooks/
+│
+├── sentiment_analysis/
+│   ├── collectors/
+│   ├── preprocessing/
+│   ├── finbert/
+│   ├── scoring/
+│   └── outputs/
+│
+├── fake_news_detection/
+│   ├── collectors/
+│   ├── preprocessing/
+│   ├── models/
+│   ├── verification/
+│   └── outputs/
+│
+├── data_pipeline/
+│   ├── stock_data/
+│   ├── news_data/
+│   ├── macroeconomic/
+│   ├── realtime/
+│   └── cleaning/
+│
+├── recommendation_engine/
+│   ├── advisor/
+│   ├── confidence/
+│   ├── portfolio/
+│   └── reports/
+│
+├── chatbot/
+│   ├── rag/
+│   ├── prompts/
+│   ├── memory/
+│   ├── agents/
+│   └── tools/
+│
+├── database/
+│   ├── mongodb/
+│   ├── schemas/
+│   └── seed/
+│
+├── deployment/
+│   ├── docker/
+│   ├── nginx/
+│   ├── kubernetes/
+│   └── scripts/
+│
 ├── tests/
-└── README.md
+│   ├── backend/
+│   ├── frontend/
+│   ├── ml/
+│   └── integration/
+│
+├── scripts/
+│
+├── assets/
+│
+└── .github/
+    └── workflows/
 ```
 
 ---
