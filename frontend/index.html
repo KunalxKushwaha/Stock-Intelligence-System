@@ -1,13 +1,163 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Stock Intelligence System</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js for technical plots -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <h1>Stock Intelligence System <span class="badge">PRO</span></h1>
+        <p>Quantile Predictions • HMM Regime Detection • Verified Signals</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="quick-chips">
+        <button onclick="selectTicker('AAPL')">AAPL</button>
+        <button onclick="selectTicker('NVDA')">NVDA</button>
+        <button onclick="selectTicker('TSLA')">TSLA</button>
+        <button onclick="selectTicker('MSFT')">MSFT</button>
+        <button onclick="selectTicker('AMZN')">AMZN</button>
+      </div>
+      <form id="search-form" onsubmit="handleSearch(event)">
+        <input type="text" id="ticker-input" placeholder="Search Ticker..." value="AAPL" />
+        <button type="submit" class="btn-primary">Search</button>
+      </form>
+      
+      <!-- Utility Buttons -->
+      <button id="tour-btn" class="btn-icon" onclick="startTour()" title="Interactive Tour">💡 Tour</button>
+      <button id="theme-btn" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  <div id="loader" class="loader-container">
+    <div class="spinner"></div>
+    <p>Computing Market Regimes & Conformal Confidence Bounds...</p>
+  </div>
+
+  <!-- Dashboard Container -->
+  <main id="dashboard" class="main-container hidden">
+
+    <!-- Top Metric Cards -->
+    <section class="metrics-grid">
+      <div class="card" id="tour-step-1">
+        <div class="card-header">
+          <span class="card-title">Current Market Price</span>
+          <span class="live-badge">● LIVE</span>
+        </div>
+        <div class="card-value" id="val-price">$0.00</div>
+        <div class="card-sub">Active Market Execution Base</div>
+      </div>
+
+      <div class="card" id="tour-step-2">
+        <div class="card-header">
+          <span class="card-title">Predicted Target Return</span>
+        </div>
+        <div class="card-value" id="val-return">+0.00%</div>
+        <div class="card-sub">Est. Target: <strong id="val-target">$0.00</strong></div>
+      </div>
+
+      <div class="card card-risk" id="tour-step-3">
+        <div class="card-header">
+          <span class="card-title title-risk">90% Safety Floor (Lower)</span>
+        </div>
+        <div class="card-value text-risk" id="val-lower">$0.00</div>
+        <div class="card-sub">Conformal Risk Floor</div>
+      </div>
+
+      <div class="card card-gain" id="tour-step-4">
+        <div class="card-header">
+          <span class="card-title title-gain">90% Upside Ceiling (Upper)</span>
+        </div>
+        <div class="card-value text-gain" id="val-upper">$0.00</div>
+        <div class="card-sub">Conformal Return Upper</div>
+      </div>
+    </section>
+
+    <!-- Analytics & Technical Indicators -->
+    <section class="analytics-grid">
+      <div class="card chart-card" id="tour-step-5">
+        <div class="chart-header">
+          <div>
+            <h2 id="chart-title">AAPL Technical Trajectory</h2>
+            <p class="card-sub">90-Day Moving Price History & Indicators</p>
+          </div>
+          <div id="val-regime" class="regime-badge">HMM State: Neutral</div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="stockChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card sidebar-card" id="tour-step-6">
+        <div>
+          <h3>Calculated Indicators</h3>
+          <div class="indicator-list">
+            <div class="indicator-item">
+              <span>RSI (14) Momentum</span>
+              <strong id="val-rsi">0.00</strong>
+            </div>
+            <div class="indicator-item">
+              <span>CBOE VIX Volatility</span>
+              <strong id="val-vix">0.00</strong>
+            </div>
+            <div class="indicator-item">
+              <span>MACD Histogram</span>
+              <strong id="val-macd">0.00</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <strong>ℹ️ Model Context</strong>
+          <p id="val-context">
+            Evaluating historical bounds and next-day price envelope.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feeds: News & Rumor Verifier -->
+    <section class="feeds-grid">
+      <div class="card" id="tour-step-7">
+        <h3>📰 Real-time Financial News</h3>
+        <div id="news-container" class="feed-list"></div>
+      </div>
+
+      <div class="card" id="tour-step-8">
+        <h3>🛡️ Rumor & Claim Verification</h3>
+        <div id="facts-container" class="feed-list"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Interactive Guided Tour Modal Overlay -->
+  <div id="tour-modal" class="tour-modal-overlay hidden">
+    <div class="tour-card">
+      <div class="tour-header">
+        <span id="tour-step-number">Step 1 of 8</span>
+        <button onclick="closeTour()" class="tour-close-btn">&times;</button>
+      </div>
+      <h3 id="tour-title">Welcome to the Guided Tour</h3>
+      <p id="tour-description">Learn how to navigate your AI Stock Intelligence Platform.</p>
+      <div class="tour-footer">
+        <button id="tour-prev-btn" onclick="prevTourStep()" class="btn-secondary">Previous</button>
+        <button id="tour-next-btn" onclick="nextTourStep()" class="btn-primary">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>
