@@ -1,0 +1,9 @@
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Artifacts
+__pycache__/
+*.py[cod]
