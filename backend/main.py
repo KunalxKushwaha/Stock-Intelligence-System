@@ -29,7 +29,7 @@ app.add_middleware(
 )
 
 # Load Trained Models globally
-models_dir = root_dir / 'ml' / 'models'
+models_dir = root_dir / 'ML' / 'models'
 try:
     best_model = joblib.load(models_dir / 'best_stock_model.pkl')
     hmm_model = joblib.load(models_dir / 'hmm_regime_model.pkl')
