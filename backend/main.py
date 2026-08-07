@@ -2,11 +2,10 @@ import sys
 import os
 from pathlib import Path
 
-# Add project root directory to sys.path BEFORE importing custom modules
-root_dir = Path(__file__).resolve().parent.parent.parent
+# Add project root directory to sys.path (2 levels up from backend/main.py)
+root_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root_dir))
 
-# Now import FastAPI and custom modules
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
@@ -37,6 +36,15 @@ try:
 except Exception as e:
     print(f"⚠️ Warning: Model artifacts not found. Error: {e}")
     best_model, hmm_model = None, None
+
+# Ticker symbol to full company name map for accurate stock news targeting
+COMPANY_NAMES = {
+    "AAPL": "Apple",
+    "NVDA": "Nvidia",
+    "TSLA": "Tesla",
+    "MSFT": "Microsoft",
+    "AMZN": "Amazon"
+}
 
 @app.get("/api/health")
 def health_check():
@@ -108,20 +116,43 @@ def analyze_stock(ticker: str = "AAPL"):
 @app.get("/api/stock/news")
 def get_stock_news(ticker: str = "AAPL"):
     news_api_key = os.getenv("NEWS_API_KEY")
-    articles = fetch_company_news(api_key=news_api_key, query=f"{ticker} stock")
+    clean_ticker = ticker.upper().strip()
+    company_name = COMPANY_NAMES.get(clean_ticker, clean_ticker)
+    
+    # Specific targeted stock market query
+    query = f"{company_name} stock"
+    
+    articles = fetch_company_news(api_key=news_api_key, query=query)
     formatted = []
-    for art in articles[:4]:
+    
+    # Exclude non-news package repositories and non-stock content
+    unwanted_keywords = ["pypi", "github", "npm", "python package"]
+    
+    for art in articles:
+        title = art.get("title", "")
+        url = art.get("url", "").lower()
+        
+        # Skip if title or URL contains package repository terms
+        if any(kw in title.lower() or kw in url for kw in unwanted_keywords):
+            continue
+
         formatted.append({
-            "title": art.get("title"),
+            "title": title,
             "url": art.get("url"),
-            "source": art.get("source", {}).get("name"),
+            "source": art.get("source", {}).get("name", "Financial Press"),
             "published_at": art.get("publishedAt")[:10] if art.get("publishedAt") else ""
         })
-    return {"ticker": ticker, "articles": formatted}
+        if len(formatted) == 4:
+            break
+
+    return {"ticker": clean_ticker, "articles": formatted}
 
 @app.get("/api/stock/factcheck")
 def get_fact_checks(ticker: str = "AAPL"):
-    claims = search_fact_check_claims(query=f"{ticker} stock market")
+    clean_ticker = ticker.upper().strip()
+    company_name = COMPANY_NAMES.get(clean_ticker, clean_ticker)
+    
+    claims = search_fact_check_claims(query=f"{company_name} stock")
     formatted = []
     if claims:
         for claim in claims[:3]:
@@ -131,4 +162,4 @@ def get_fact_checks(ticker: str = "AAPL"):
                 "publisher": review.get("publisher", {}).get("name", "Unknown"),
                 "rating": review.get("textualRating", "Unverified")
             })
-    return {"ticker": ticker, "claims": formatted}
+    return {"ticker": clean_ticker, "claims": formatted}

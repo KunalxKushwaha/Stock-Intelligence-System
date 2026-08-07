@@ -90,9 +90,19 @@
         <div class="chart-header">
           <div>
             <h2 id="chart-title">AAPL Technical Trajectory</h2>
-            <p class="card-sub">90-Day Moving Price History & Indicators</p>
+            <p class="card-sub">Moving Price Action & Trend Indicators</p>
           </div>
-          <div id="val-regime" class="regime-badge">HMM State: Neutral</div>
+          <div class="chart-controls-group">
+            <div id="val-regime" class="regime-badge">HMM State: Neutral</div>
+            <!-- Timeframe Selector Buttons -->
+            <div class="timeframe-selector">
+              <button class="tf-btn" onclick="setTimeframe('1D', this)">1D</button>
+              <button class="tf-btn" onclick="setTimeframe('1W', this)">1W</button>
+              <button class="tf-btn" onclick="setTimeframe('1M', this)">1M</button>
+              <button class="tf-btn" onclick="setTimeframe('1Y', this)">1Y</button>
+              <button class="tf-btn active" onclick="setTimeframe('ALL', this)">ALL</button>
+            </div>
+          </div>
         </div>
         <div class="chart-wrapper">
           <canvas id="stockChart"></canvas>
@@ -141,6 +151,25 @@
     </section>
 
   </main>
+
+  <!-- Fact-Check Detail Modal Popover -->
+  <div id="fact-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span id="fact-modal-badge" class="badge-modal">Fact Check Verification</span>
+        <button onclick="closeFactModal()" class="modal-close-btn">&times;</button>
+      </div>
+      <h3 id="fact-modal-claim" class="modal-claim-title">Claim Title</h3>
+      <div class="modal-body">
+        <p><strong>Publisher Source:</strong> <span id="fact-modal-publisher">-</span></p>
+        <p><strong>Rating Verdict:</strong> <span id="fact-modal-rating" class="modal-rating-text">-</span></p>
+        <p id="fact-modal-desc" class="modal-desc">Detailed verification feedback from fact-checking network.</p>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeFactModal()" class="btn-primary">Dismiss</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Interactive Guided Tour Modal Overlay -->
   <div id="tour-modal" class="tour-modal-overlay hidden">

@@ -1,195 +1,64 @@
 let stockChart = null;
+let rawHistoricalData = [];
+let activeTimeframe = 'ALL';
+let currentFactClaims = [];
 
-// ==========================================
-// 1. Theme Toggle Logic (Dark / Light)
-// ==========================================
+const VERIFIED_FINANCIAL_SOURCES = [
+  'reuters', 'bloomberg', 'the wall street journal', 'wsj', 
+  'investopedia', 'cnbc', 'financial times', 'barron\'s', 
+  'marketwatch', 'forbes', 'business insider', 'yahoo finance', 'biztoc'
+];
+
 function toggleTheme() {
   const html = document.documentElement;
-  const currentTheme = html.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  
+  const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   html.setAttribute('data-theme', newTheme);
-  
-  const themeBtn = document.getElementById('theme-btn');
-  themeBtn.textContent = newTheme === 'dark' ? '🌙 Dark' : '☀️ Light';
+  document.getElementById('theme-btn').textContent = newTheme === 'dark' ? '🌙 Dark' : '☀️ Light';
 
-  // Re-render chart grid lines with matching theme colors
   if (stockChart) {
     const gridColor = newTheme === 'dark' ? '#1e293b' : '#e2e8f0';
-    const textColor = newTheme === 'dark' ? '#64748b' : '#64748b';
     stockChart.options.scales.x.grid.color = gridColor;
     stockChart.options.scales.y.grid.color = gridColor;
-    stockChart.options.scales.x.ticks.color = textColor;
-    stockChart.options.scales.y.ticks.color = textColor;
     stockChart.update();
   }
 }
 
-// ==========================================
-// 2. Guided Tour Engine
-// ==========================================
-const tourSteps = [
-  {
-    id: "tour-step-1",
-    title: "1. Current Market Price",
-    desc: "Displays the live execution price of the selected stock from Yahoo Finance real-time feeds."
-  },
-  {
-    id: "tour-step-2",
-    title: "2. Predicted Target Return",
-    desc: "Outputs the expected next-day price return percentage predicted by the classical ML ensemble (XGBoost)."
-  },
-  {
-    id: "tour-step-3",
-    title: "3. 90% Safety Floor (Lower Bound)",
-    desc: "Calculates the mathematical downside risk floor using Quantile Conformal XGBoost (5th percentile confidence)."
-  },
-  {
-    id: "tour-step-4",
-    title: "4. 90% Upside Ceiling (Upper Bound)",
-    desc: "Calculates the mathematical upside potential ceiling using Quantile Conformal XGBoost (95th percentile confidence)."
-  },
-  {
-    id: "tour-step-5",
-    title: "5. Technical Trajectory & HMM Regime",
-    desc: "Visualizes the 90-day moving price action while classifying the current market state (Bullish, Neutral, or Bearish Volatility) using a Hidden Markov Model."
-  },
-  {
-    id: "tour-step-6",
-    title: "6. Calculated Technical Indicators",
-    desc: "Features 14-day RSI momentum, MACD histogram, and CBOE VIX volatility indicators engineered dynamically."
-  },
-  {
-    id: "tour-step-7",
-    title: "7. Real-Time Financial News Stream",
-    desc: "Aggregates breaking stock news headlines from NewsAPI in real time."
-  },
-  {
-    id: "tour-step-8",
-    title: "8. Rumor & Fact-Check Verifier",
-    desc: "Queries Google Fact Check Tools to highlight unverified rumors, rating market claims instantly."
-  }
-];
+function setTimeframe(tf, btnElement) {
+  activeTimeframe = tf;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  if (btnElement) btnElement.classList.add('active');
 
-let currentTourIdx = 0;
-
-function startTour() {
-  currentTourIdx = 0;
-  document.getElementById('tour-modal').classList.remove('hidden');
-  updateTourStep();
+  const filteredData = filterDataByTimeframe(rawHistoricalData, tf);
+  renderChart(document.getElementById('ticker-input').value.toUpperCase(), filteredData);
 }
 
-function closeTour() {
-  document.getElementById('tour-modal').classList.add('hidden');
-  removeTourHighlights();
-}
+function filterDataByTimeframe(data, tf) {
+  if (!data || data.length === 0) return [];
+  if (tf === 'ALL') return data;
 
-function updateTourStep() {
-  removeTourHighlights();
+  const totalPoints = data.length;
+  let pointsToKeep = totalPoints;
 
-  const step = tourSteps[currentTourIdx];
-  document.getElementById('tour-step-number').textContent = `Step ${currentTourIdx + 1} of ${tourSteps.length}`;
-  document.getElementById('tour-title').textContent = step.title;
-  document.getElementById('tour-description').textContent = step.desc;
-
-  // Highlight active element on dashboard
-  const targetElem = document.getElementById(step.id);
-  if (targetElem) {
-    targetElem.classList.add('tour-highlight');
-    targetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  switch (tf) {
+    case '1D': pointsToKeep = Math.min(2, totalPoints); break;
+    case '1W': pointsToKeep = Math.min(5, totalPoints); break;
+    case '1M': pointsToKeep = Math.min(22, totalPoints); break;
+    case '1Y': pointsToKeep = Math.min(252, totalPoints); break;
+    default: pointsToKeep = totalPoints;
   }
 
-  // Button States
-  document.getElementById('tour-prev-btn').disabled = currentTourIdx === 0;
-  document.getElementById('tour-next-btn').textContent = currentTourIdx === tourSteps.length - 1 ? "Finish Tour" : "Next";
-}
-
-function nextTourStep() {
-  if (currentTourIdx < tourSteps.length - 1) {
-    currentTourIdx++;
-    updateTourStep();
-  } else {
-    closeTour();
-  }
-}
-
-function prevTourStep() {
-  if (currentTourIdx > 0) {
-    currentTourIdx--;
-    updateTourStep();
-  }
-}
-
-function removeTourHighlights() {
-  tourSteps.forEach(step => {
-    const elem = document.getElementById(step.id);
-    if (elem) elem.classList.remove('tour-highlight');
-  });
-}
-
-// ==========================================
-// 3. API & Data Engine
-// ==========================================
-async function fetchIntelligence(ticker) {
-  const loader = document.getElementById('loader');
-  const dashboard = document.getElementById('dashboard');
-
-  loader.classList.remove('hidden');
-  dashboard.classList.add('hidden');
-
-  try {
-    const [resData, resNews, resFacts] = await Promise.all([
-      fetch(`http://localhost:8000/api/stock/analyze?ticker=${ticker}`).then(r => r.json()),
-      fetch(`http://localhost:8000/api/stock/news?ticker=${ticker}`).then(r => r.json()),
-      fetch(`http://localhost:8000/api/stock/factcheck?ticker=${ticker}`).then(r => r.json())
-    ]);
-
-    // Populate Top Metrics
-    document.getElementById('val-price').textContent = `$${resData.current_price.toFixed(2)}`;
-    
-    const retPct = resData.predictions.next_return_pct;
-    const retElem = document.getElementById('val-return');
-    retElem.textContent = `${retPct >= 0 ? '+' : ''}${retPct}%`;
-    retElem.style.color = retPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-
-    document.getElementById('val-target').textContent = `$${resData.predictions.target_price.toFixed(2)}`;
-    document.getElementById('val-lower').textContent = `$${resData.predictions.lower_bound_price.toFixed(2)}`;
-    document.getElementById('val-upper').textContent = `$${resData.predictions.upper_bound_price.toFixed(2)}`;
-
-    // Technical Indicators
-    document.getElementById('val-rsi').textContent = resData.technical_indicators.rsi_14;
-    document.getElementById('val-vix').textContent = resData.technical_indicators.vix;
-    document.getElementById('val-macd').textContent = resData.technical_indicators.macd;
-    document.getElementById('val-regime').textContent = `Regime: ${resData.market_regime.label}`;
-
-    document.getElementById('val-context').innerHTML = `
-      XGBoost predicts a target of <strong>$${resData.predictions.target_price.toFixed(2)}</strong> 
-      with a 90% confidence corridor between <strong>$${resData.predictions.lower_bound_price.toFixed(2)}</strong> 
-      and <strong>$${resData.predictions.upper_bound_price.toFixed(2)}</strong>.
-    `;
-
-    // Render Historical Chart
-    renderChart(resData.ticker, resData.historical_chart);
-
-    // Render Feeds
-    renderNews(resNews.articles || []);
-    renderFactChecks(resFacts.claims || []);
-
-    loader.classList.add('hidden');
-    dashboard.classList.remove('hidden');
-
-  } catch (err) {
-    console.error("API error:", err);
-    alert("Error fetching stock intelligence data. Ensure FastAPI backend is running on port 8000.");
-    loader.classList.add('hidden');
-  }
+  return data.slice(totalPoints - pointsToKeep);
 }
 
 function renderChart(ticker, historicalData) {
   document.getElementById('chart-title').textContent = `${ticker} Technical Trajectory`;
   const ctx = document.getElementById('stockChart').getContext('2d');
   
-  const labels = historicalData.map(d => d.Date);
+  // Format Date string cleanly (YYYY-MM-DD)
+  const labels = historicalData.map(d => {
+    const rawDate = d.Date || '';
+    return rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
+  });
   const prices = historicalData.map(d => d.Close);
 
   if (stockChart) stockChart.destroy();
@@ -209,7 +78,7 @@ function renderChart(ticker, historicalData) {
         borderWidth: 2.5,
         fill: true,
         tension: 0.2,
-        pointRadius: 0
+        pointRadius: 2
       }]
     },
     options: {
@@ -217,24 +86,105 @@ function renderChart(ticker, historicalData) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { color: gridColor }, ticks: { color: '#64748b' } },
-        y: { grid: { color: gridColor }, ticks: { color: '#64748b' } }
+        x: { 
+          grid: { color: gridColor }, 
+          ticks: { color: '#64748b', maxTicksLimit: 8 } 
+        },
+        y: { 
+          grid: { color: gridColor }, 
+          ticks: { color: '#64748b' } 
+        }
       }
     }
   });
 }
 
-function renderNews(articles) {
+async function fetchIntelligence(ticker) {
+  const loader = document.getElementById('loader');
+  const dashboard = document.getElementById('dashboard');
+
+  loader.classList.remove('hidden');
+  dashboard.classList.add('hidden');
+
+  try {
+    const [resData, resNews, resFacts] = await Promise.all([
+      fetch(`http://localhost:8000/api/stock/analyze?ticker=${ticker}`).then(r => r.json()),
+      fetch(`http://localhost:8000/api/stock/news?ticker=${ticker}`).then(r => r.json()),
+      fetch(`http://localhost:8000/api/stock/factcheck?ticker=${ticker}`).then(r => r.json())
+    ]);
+
+    rawHistoricalData = resData.historical_chart || [];
+    currentFactClaims = resFacts.claims || [];
+
+    document.getElementById('val-price').textContent = `$${resData.current_price.toFixed(2)}`;
+    
+    const retPct = resData.predictions.next_return_pct;
+    const retElem = document.getElementById('val-return');
+    retElem.textContent = `${retPct >= 0 ? '+' : ''}${retPct}%`;
+    retElem.style.color = retPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    document.getElementById('val-target').textContent = `$${resData.predictions.target_price.toFixed(2)}`;
+    document.getElementById('val-lower').textContent = `$${resData.predictions.lower_bound_price.toFixed(2)}`;
+    document.getElementById('val-upper').textContent = `$${resData.predictions.upper_bound_price.toFixed(2)}`;
+
+    document.getElementById('val-rsi').textContent = resData.technical_indicators.rsi_14;
+    document.getElementById('val-vix').textContent = resData.technical_indicators.vix;
+    document.getElementById('val-macd').textContent = resData.technical_indicators.macd;
+    document.getElementById('val-regime').textContent = `Regime: ${resData.market_regime.label}`;
+
+    const filteredData = filterDataByTimeframe(rawHistoricalData, activeTimeframe);
+    renderChart(resData.ticker, filteredData);
+
+    renderNews(resNews.articles || [], currentFactClaims);
+    renderFactChecks(currentFactClaims);
+
+    loader.classList.add('hidden');
+    dashboard.classList.remove('hidden');
+
+  } catch (err) {
+    console.error("API error:", err);
+    alert("Error fetching stock intelligence data. Ensure FastAPI backend is running on port 8000.");
+    loader.classList.add('hidden');
+  }
+}
+
+function renderNews(articles, claims) {
   const container = document.getElementById('news-container');
-  container.innerHTML = articles.map(art => `
-    <a href="${art.url}" target="_blank" class="feed-item">
-      <h4>${art.title}</h4>
-      <div class="feed-meta">
-        <span>${art.source}</span>
-        <span>${art.published_at}</span>
-      </div>
-    </a>
-  `).join('') || '<p style="color: var(--text-muted);">No news articles available.</p>';
+  if (!articles || articles.length === 0) {
+    container.innerHTML = '<p style="color: var(--text-muted);">No news articles available.</p>';
+    return;
+  }
+
+  container.innerHTML = articles.map((art) => {
+    const matchedClaimIdx = claims.findIndex(c => 
+      c.claim && art.title && art.title.toLowerCase().includes(c.claim.toLowerCase().split(' ')[0])
+    );
+
+    const sourceName = (art.source || '').toLowerCase();
+    const isVerifiedOutlet = VERIFIED_FINANCIAL_SOURCES.some(src => sourceName.includes(src));
+
+    let badgeHtml = '';
+    if (matchedClaimIdx !== -1) {
+      badgeHtml = `<span class="fact-badge fact-badge-rumor" onclick="event.preventDefault(); openFactModal(${matchedClaimIdx});">⚠️ Rumor Checked</span>`;
+    } else if (isVerifiedOutlet) {
+      badgeHtml = `<span class="fact-badge fact-badge-verified" onclick="event.preventDefault(); alert('Headline verified by established financial news outlet.');">🛡️ Verified Source</span>`;
+    } else {
+      badgeHtml = `<span class="fact-badge" style="background: rgba(100, 116, 139, 0.15); color: var(--text-muted); border: 1px solid rgba(100, 116, 139, 0.3);">📰 News</span>`;
+    }
+
+    return `
+      <a href="${art.url}" target="_blank" class="feed-item">
+        <div class="feed-title-container">
+          <h4>${art.title}</h4>
+          ${badgeHtml}
+        </div>
+        <div class="feed-meta">
+          <span>${art.source}</span>
+          <span>${art.published_at}</span>
+        </div>
+      </a>
+    `;
+  }).join('');
 }
 
 function renderFactChecks(claims) {
@@ -244,15 +194,35 @@ function renderFactChecks(claims) {
     return;
   }
 
-  container.innerHTML = claims.map(c => `
-    <div class="feed-item">
-      <h4 style="font-weight: 500;">"${c.claim}"</h4>
+  container.innerHTML = claims.map((c, idx) => `
+    <div class="feed-item" style="cursor: pointer;" onclick="openFactModal(${idx})">
+      <div class="feed-title-container">
+        <h4 style="font-weight: 500;">"${c.claim}"</h4>
+        <span class="fact-badge fact-badge-rumor">Inspect Claim</span>
+      </div>
       <div class="feed-meta">
         <span>Source: ${c.publisher}</span>
         <strong style="color: var(--accent-red);">${c.rating}</strong>
       </div>
     </div>
   `).join('');
+}
+
+function openFactModal(claimIdx) {
+  const claim = currentFactClaims[claimIdx];
+  if (!claim) return;
+
+  document.getElementById('fact-modal-claim').textContent = `"${claim.claim}"`;
+  document.getElementById('fact-modal-publisher').textContent = claim.publisher || 'Independent Fact Check Network';
+  document.getElementById('fact-modal-rating').textContent = claim.rating || 'Unverified Claim';
+  document.getElementById('fact-modal-desc').textContent = claim.description || 
+    `This financial news statement was evaluated by Google Fact Check Tools API. Rating: ${claim.rating}.`;
+
+  document.getElementById('fact-modal').classList.remove('hidden');
+}
+
+function closeFactModal() {
+  document.getElementById('fact-modal').classList.add('hidden');
 }
 
 function handleSearch(event) {
@@ -266,7 +236,6 @@ function selectTicker(symbol) {
   fetchIntelligence(symbol);
 }
 
-// Initialize Dashboard
 window.addEventListener('DOMContentLoaded', () => {
   fetchIntelligence('AAPL');
 });

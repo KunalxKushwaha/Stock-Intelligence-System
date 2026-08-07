@@ -249,6 +249,41 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chart-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Timeframe Pill Controls */
+.timeframe-selector {
+  display: flex;
+  background: var(--panel-sub);
+  border: 1px solid var(--border-color);
+  padding: 2px;
+  border-radius: 8px;
+  gap: 2px;
+}
+
+.tf-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tf-btn.active {
+  background: var(--accent-blue);
+  color: white;
 }
 
 .regime-badge {
@@ -300,7 +335,7 @@ body {
   line-height: 1.5;
 }
 
-/* Feeds */
+/* Feeds & Fact Check Badges */
 .feeds-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -326,15 +361,24 @@ body {
   text-decoration: none;
   color: var(--text-main);
   display: block;
+  position: relative;
 }
 
 .feed-item:hover {
   border-color: var(--accent-blue);
 }
 
+.feed-title-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .feed-item h4 {
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.4;
 }
 
 .feed-meta {
@@ -343,6 +387,36 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 6px;
+}
+
+/* Rumor & Fact Check Badges on News Cards */
+.fact-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.15s ease;
+}
+
+.fact-badge:hover {
+  transform: scale(1.05);
+}
+
+.fact-badge-verified {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-green);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.fact-badge-rumor {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 /* Loader */
@@ -369,8 +443,8 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* Tour Modal Overlay */
-.tour-modal-overlay {
+/* Modal Popover Styles */
+.modal-overlay, .tour-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -384,43 +458,78 @@ body {
   justify-content: center;
 }
 
-.tour-card {
+.modal-card, .tour-card {
   background: var(--panel-bg);
   border: 1px solid var(--accent-blue);
   border-radius: 16px;
   padding: 24px;
-  max-width: 450px;
+  max-width: 480px;
   width: 90%;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
-.tour-header {
+.modal-header, .tour-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  color: var(--accent-blue);
-  font-weight: 700;
 }
 
-.tour-close-btn {
+.badge-modal {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--accent-blue);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.modal-close-btn, .tour-close-btn {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 20px;
+  font-size: 22px;
   cursor: pointer;
 }
 
-.tour-footer {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
+.modal-claim-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
-/* Highlighted tour step element */
+.modal-body {
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-main);
+}
+
+.modal-rating-text {
+  color: var(--accent-red);
+  font-weight: 700;
+}
+
+.modal-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  background: var(--panel-sub);
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.modal-footer, .tour-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
 .tour-highlight {
   border: 2px solid var(--accent-blue) !important;
   box-shadow: 0 0 15px rgba(37, 99, 235, 0.5) !important;
