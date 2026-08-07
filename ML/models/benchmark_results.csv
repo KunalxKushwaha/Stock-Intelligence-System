@@ -1,0 +1,5 @@
+Model Architecture,RMSE,MAE,Directional Accuracy (%)
+Standalone XGBoost,0.01664,0.011578,56.47
+Hybrid (HMM + XGBoost),0.01664,0.011578,56.47
+Hybrid (HMM + Quantile Conformal XGB),0.016895,0.011959,50.0
+Random Forest,0.016941,0.012037,47.06
