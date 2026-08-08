@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,19 +21,43 @@
     </div>
 
     <div class="controls">
+      <!-- Quick Chips -->
       <div class="quick-chips">
-        <button onclick="selectTicker('AAPL')">AAPL</button>
-        <button onclick="selectTicker('NVDA')">NVDA</button>
-        <button onclick="selectTicker('TSLA')">TSLA</button>
-        <button onclick="selectTicker('MSFT')">MSFT</button>
-        <button onclick="selectTicker('AMZN')">AMZN</button>
+        <button onclick="selectTicker('AAPL')">Apple (AAPL)</button>
+        <button onclick="selectTicker('NVDA')">Nvidia (NVDA)</button>
+        <button onclick="selectTicker('TSLA')">Tesla (TSLA)</button>
+        <button onclick="selectTicker('MSFT')">Microsoft (MSFT)</button>
+        <button onclick="selectTicker('AMZN')">Amazon (AMZN)</button>
       </div>
+      
+      <!-- Search Form with Auto-Complete Dropdown -->
       <form id="search-form" onsubmit="handleSearch(event)">
-        <input type="text" id="ticker-input" placeholder="Search Ticker..." value="AAPL" />
+        <input 
+          type="text" 
+          id="ticker-input" 
+          list="stock-suggestions" 
+          placeholder="Search Ticker or Company..." 
+          value="AAPL" 
+          autocomplete="off"
+        />
+        <datalist id="stock-suggestions">
+          <option value="AAPL">Apple Inc. (AAPL)</option>
+          <option value="NVDA">Nvidia Corp. (NVDA)</option>
+          <option value="TSLA">Tesla Inc. (TSLA)</option>
+          <option value="MSFT">Microsoft Corp. (MSFT)</option>
+          <option value="AMZN">Amazon.com Inc. (AMZN)</option>
+          <option value="GOOGL">Alphabet / Google (GOOGL)</option>
+          <option value="META">Meta / Facebook (META)</option>
+          <option value="NFLX">Netflix Inc. (NFLX)</option>
+          <option value="AMD">Advanced Micro Devices (AMD)</option>
+          <option value="JPM">JPMorgan Chase (JPM)</option>
+        </datalist>
         <button type="submit" class="btn-primary">Search</button>
       </form>
       
       <!-- Utility Buttons -->
+      <button id="portfolio-btn" class="btn-icon" onclick="openPortfolioModal()" title="Manage Watchlist & Portfolio">⭐ Portfolio & Watchlist</button>
+      <button id="stocks-btn" class="btn-icon" onclick="openStocksModal()" title="View Supported Stocks">📊 Supported Stocks</button>
       <button id="tour-btn" class="btn-icon" onclick="startTour()" title="Interactive Tour">💡 Tour</button>
       <button id="theme-btn" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
     </div>
@@ -42,7 +66,7 @@
   <!-- Loading State -->
   <div id="loader" class="loader-container">
     <div class="spinner"></div>
-    <p>Computing Market Regimes & Conformal Confidence Bounds...</p>
+    <p>Computing Market Regimes, Conformal Bounds & Rating Engine...</p>
   </div>
 
   <!-- Dashboard Container -->
@@ -53,10 +77,13 @@
       <div class="card" id="tour-step-1">
         <div class="card-header">
           <span class="card-title">Current Market Price</span>
-          <span class="live-badge">● LIVE</span>
+          <div class="header-actions-inline">
+            <button id="watchlist-toggle-btn" class="btn-watchlist-star" onclick="toggleCurrentWatchlist()" title="Save to Watchlist">☆</button>
+            <span class="live-badge">● LIVE</span>
+          </div>
         </div>
         <div class="card-value" id="val-price">$0.00</div>
-        <div class="card-sub">Active Market Execution Base</div>
+        <div class="card-sub" id="val-company-name">Active Market Execution Base</div>
       </div>
 
       <div class="card" id="tour-step-2">
@@ -84,9 +111,30 @@
       </div>
     </section>
 
+    <!-- Recommendation & Peer Discovery Banner -->
+    <section class="card rec-card" id="tour-step-6">
+      <div class="rec-header">
+        <div>
+          <span class="card-title">AI Recommendation Engine</span>
+          <h2 id="rec-verdict-text" class="rec-verdict">Analyzing Verdict...</h2>
+        </div>
+        <div id="rec-badge" class="rec-badge-pill">Score: 0</div>
+      </div>
+      <div class="rec-body">
+        <div class="rec-reasons">
+          <h4>📊 Synthesis Rationale:</h4>
+          <ul id="rec-reasons-list"></ul>
+        </div>
+        <div class="rec-peers">
+          <h4>🔍 Discover Industry Peers:</h4>
+          <div id="peer-chips-container" class="quick-chips"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- Analytics & Technical Indicators -->
     <section class="analytics-grid">
-      <div class="card chart-card" id="tour-step-5">
+      <div class="card chart-card" id="tour-step-7">
         <div class="chart-header">
           <div>
             <h2 id="chart-title">AAPL Technical Trajectory</h2>
@@ -94,6 +142,13 @@
           </div>
           <div class="chart-controls-group">
             <div id="val-regime" class="regime-badge">HMM State: Neutral</div>
+            <!-- Technical Drawing Tools Toolbar -->
+            <div class="drawing-tools-toolbar">
+              <button class="draw-btn active" onclick="toggleDrawingTool('none', this)">Normal</button>
+              <button class="draw-btn" onclick="toggleDrawingTool('fibonacci', this)">📐 Fibonacci</button>
+              <button class="draw-btn" onclick="toggleDrawingTool('support', this)">🛡️ Support/Resistance</button>
+              <button class="draw-btn" onclick="clearDrawings()" title="Clear Tools">🗑️ Reset</button>
+            </div>
             <!-- Timeframe Selector Buttons -->
             <div class="timeframe-selector">
               <button class="tf-btn" onclick="setTimeframe('1D', this)">1D</button>
@@ -107,9 +162,10 @@
         <div class="chart-wrapper">
           <canvas id="stockChart"></canvas>
         </div>
+        <div id="drawing-status-msg" class="drawing-status hidden"></div>
       </div>
 
-      <div class="card sidebar-card" id="tour-step-6">
+      <div class="card sidebar-card" id="tour-step-8">
         <div>
           <h3>Calculated Indicators</h3>
           <div class="indicator-list">
@@ -137,20 +193,116 @@
       </div>
     </section>
 
-    <!-- Feeds: News & Rumor Verifier -->
-    <section class="feeds-grid">
-      <div class="card" id="tour-step-7">
+    <!-- Feeds: News, Rumor Verifier & Sub-Second Order Book Stream -->
+    <section class="feeds-grid-3">
+      <div class="card" id="tour-step-9">
         <h3>📰 Real-time Financial News</h3>
         <div id="news-container" class="feed-list"></div>
       </div>
 
-      <div class="card" id="tour-step-8">
+      <div class="card" id="tour-step-10">
         <h3>🛡️ Rumor & Claim Verification</h3>
         <div id="facts-container" class="feed-list"></div>
+      </div>
+
+      <div class="card orderbook-card" id="tour-step-11">
+        <div class="card-header">
+          <h3>⚡ Level 1 & 2 Order Book Stream</h3>
+          <span class="live-badge">● STREAMING</span>
+        </div>
+        <div class="orderbook-container">
+          <div class="ob-metrics">
+            <div>Best Bid: <strong id="ob-bid" class="text-gain">$0.00</strong></div>
+            <div>Best Ask: <strong id="ob-ask" class="text-risk">$0.00</strong></div>
+            <div>Spread: <strong id="ob-spread">$0.00</strong></div>
+          </div>
+          <div class="ob-tables-wrapper">
+            <div class="ob-table-box">
+              <span class="ob-title text-gain">Bids (Buy Orders)</span>
+              <div id="ob-bids-list"></div>
+            </div>
+            <div class="ob-table-box">
+              <span class="ob-title text-risk">Asks (Sell Orders)</span>
+              <div id="ob-asks-list"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
   </main>
+
+  <!-- Portfolio & Watchlist Manager Modal -->
+  <div id="portfolio-modal" class="modal-overlay hidden">
+    <div class="modal-card portfolio-modal-card">
+      <div class="modal-header">
+        <span class="badge-modal">Portfolio & Watchlist Tracker</span>
+        <button onclick="closePortfolioModal()" class="modal-close-btn">&times;</button>
+      </div>
+      
+      <div class="portfolio-tabs">
+        <button class="port-tab-btn active" onclick="switchPortfolioTab('watchlist', this)">⭐ Custom Watchlist</button>
+        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Portfolio Positions</button>
+      </div>
+
+      <!-- Watchlist Tab Content -->
+      <div id="tab-watchlist" class="port-tab-content">
+        <div id="watchlist-items-container" class="port-list-container"></div>
+      </div>
+
+      <!-- Portfolio Positions Tab Content -->
+      <div id="tab-positions" class="port-tab-content hidden">
+        <div class="position-form-container">
+          <div class="position-form-group">
+            <label class="form-label">Select Stock</label>
+            <select id="pos-ticker-select"></select>
+          </div>
+          <div class="position-form-group">
+            <label class="form-label">No. of Shares</label>
+            <input type="number" id="pos-shares-input" placeholder="10" value="10" min="1" />
+          </div>
+          <div class="position-form-group">
+            <label class="form-label">Buy Price ($)</label>
+            <input type="number" id="pos-price-input" placeholder="150" value="150" step="0.01" />
+          </div>
+          <div class="position-form-group btn-group-align">
+            <button onclick="addPortfolioPosition()" class="btn-primary">Add Position</button>
+          </div>
+        </div>
+
+        <div class="port-summary-bar">
+          <div>Total Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
+          <div>Total Gain/Loss: <strong id="port-total-pl">$0.00</strong></div>
+        </div>
+        <div id="positions-items-container" class="port-list-container"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button onclick="closePortfolioModal()" class="btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supported Stocks Directory Modal -->
+  <div id="stocks-modal" class="modal-overlay hidden">
+    <div class="modal-card stocks-modal-card">
+      <div class="modal-header">
+        <span class="badge-modal">Database Directory</span>
+        <button onclick="closeStocksModal()" class="modal-close-btn">&times;</button>
+      </div>
+      <h3 class="modal-claim-title">Indexed Database Stocks & Equities</h3>
+      <p class="modal-body" style="font-size: 12px; color: var(--text-muted);">
+        Select any supported stock below to instantly load its historical model data, live price action, and AI intelligence feeds.
+      </p>
+      <div class="stocks-search-box">
+        <input type="text" id="modal-stock-filter" placeholder="Filter stocks by name or symbol..." oninput="filterStockDirectory()" />
+      </div>
+      <div id="stocks-directory-list" class="stocks-directory-grid"></div>
+      <div class="modal-footer">
+        <button onclick="closeStocksModal()" class="btn-primary">Close Directory</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Fact-Check Detail Modal Popover -->
   <div id="fact-modal" class="modal-overlay hidden">
@@ -175,7 +327,7 @@
   <div id="tour-modal" class="tour-modal-overlay hidden">
     <div class="tour-card">
       <div class="tour-header">
-        <span id="tour-step-number">Step 1 of 8</span>
+        <span id="tour-step-number">Step 1 of 11</span>
         <button onclick="closeTour()" class="tour-close-btn">&times;</button>
       </div>
       <h3 id="tour-title">Welcome to the Guided Tour</h3>
