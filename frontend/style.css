@@ -1,30 +1,44 @@
-/* Color Palette Variables for Theme Switching (Default is Light) */
+/* ============================================================
+   AI Stock Intelligence System — Visual System
+   Identity: a quant-terminal aesthetic. Deep graphite panels,
+   a brass/amber signature accent (a nod to legacy trading-floor
+   terminals), and tabular monospace numerals on every figure so
+   prices, deltas and order-book rows line up like a real ticker.
+   All class names, element IDs and the --text-muted / --accent-*
+   variable names below are load-bearing for app.js — values were
+   restyled, nothing was renamed or removed.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 [data-theme="light"] {
-  --bg-color: #f8fafc;
+  --bg-color: #f4f5f7;
   --panel-bg: #ffffff;
-  --panel-sub: #f1f5f9;
-  --border-color: #e2e8f0;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --accent-blue: #2563eb;
-  --accent-green: #059669;
-  --accent-red: #dc2626;
-  --accent-yellow: #d97706;
-  --card-shadow: rgba(0, 0, 0, 0.05);
+  --panel-sub: #eef0f4;
+  --border-color: #e0e3e9;
+  --text-main: #12151b;
+  --text-muted: #626a76;
+  --accent-blue: #a3710f;       /* signature brass/amber, JS-safe var name */
+  --accent-green: #0e8a5f;
+  --accent-red: #c6323b;
+  --accent-yellow: #b7791f;
+  --card-shadow: rgba(15, 23, 30, 0.07);
+  --glow-soft: rgba(163, 113, 15, 0.14);
 }
 
 [data-theme="dark"] {
-  --bg-color: #0b0e14;
-  --panel-bg: #111622;
-  --panel-sub: #161b26;
-  --border-color: #1e293b;
-  --text-main: #e2e8f0;
-  --text-muted: #64748b;
-  --accent-blue: #2563eb;
-  --accent-green: #10b981;
-  --accent-red: #ef4444;
-  --accent-yellow: #f59e0b;
-  --card-shadow: rgba(0, 0, 0, 0.4);
+  --bg-color: #0a0c10;
+  --panel-bg: #13161c;
+  --panel-sub: #191d25;
+  --border-color: #262b34;
+  --text-main: #eceff3;
+  --text-muted: #8891a0;
+  --accent-blue: #e3a64b;       /* signature brass/amber, JS-safe var name */
+  --accent-green: #2fd989;
+  --accent-red: #ff5c5c;
+  --accent-yellow: #f0b93d;
+  --card-shadow: rgba(0, 0, 0, 0.5);
+  --glow-soft: rgba(227, 166, 75, 0.14);
 }
 
 * {
@@ -32,15 +46,53 @@
   margin: 0;
   padding: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
 }
+
+html { scroll-behavior: smooth; }
 
 body {
   background-color: var(--bg-color);
   color: var(--text-main);
   padding-bottom: 40px;
+  font-feature-settings: "cv11", "ss01";
 }
 
+/* Tabular monospace numerals — the terminal signature. Applied to every
+   figure surface: metric values, indicators, order book, portfolio, badges. */
+.card-value,
+.rec-badge-pill,
+.indicator-item strong,
+#val-vix, #val-rsi, #val-macd,
+.ob-metrics strong, .ob-row span,
+.port-item-row strong, .position-form-group input,
+.stock-dir-symbol, #port-total-val, #port-total-pl,
+#search-form input, #modal-stock-filter {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+h1, h2, h3, .rec-verdict, .modal-claim-title, .tour-title,
+.chart-header h2, .sidebar-card h3, .feeds-grid-3 h3 {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+::selection { background: var(--glow-soft); color: var(--text-main); }
+
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Navbar
+   ============================================================ */
 .navbar {
   position: sticky;
   top: 0;
@@ -54,7 +106,7 @@ body {
   flex-wrap: wrap;
   gap: 16px;
   width: 100%;
-  box-shadow: 0 2px 10px var(--card-shadow);
+  box-shadow: 0 1px 0 var(--border-color), 0 8px 24px var(--card-shadow);
 }
 
 .brand {
@@ -66,22 +118,26 @@ body {
 }
 
 .brand-icon {
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(135deg, var(--accent-blue), #1d4ed8);
-  color: white;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(150deg, var(--accent-blue), #7a5209);
+  color: #0a0c10;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
+  box-shadow: 0 4px 14px var(--glow-soft), inset 0 1px 0 rgba(255,255,255,0.25);
 }
 
 .brand h1 {
   font-size: 16px;
   font-weight: 700;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .brand p {
@@ -90,15 +146,20 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.01em;
 }
 
 .badge {
-  font-size: 10px;
-  background: rgba(37, 99, 235, 0.15);
+  font-size: 9.5px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--glow-soft);
   color: var(--accent-blue);
-  border: 1px solid rgba(37, 99, 235, 0.3);
-  padding: 2px 6px;
-  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 40%, transparent);
+  padding: 2px 7px;
+  border-radius: 5px;
 }
 
 .controls {
@@ -119,9 +180,10 @@ body {
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
   color: var(--text-muted);
-  padding: 6px 10px;
+  padding: 7px 12px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
   border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
@@ -130,6 +192,8 @@ body {
 .quick-chips button:hover {
   border-color: var(--accent-blue);
   color: var(--text-main);
+  background: var(--glow-soft);
+  transform: translateY(-1px);
 }
 
 #search-form {
@@ -144,20 +208,30 @@ body {
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 13px;
+  font-weight: 600;
   outline: none;
   width: 160px;
 }
 
+#search-form input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+
 .btn-primary {
-  background: var(--accent-blue);
+  background: linear-gradient(155deg, var(--accent-blue), color-mix(in srgb, var(--accent-blue) 70%, black));
   border: none;
-  color: white;
-  padding: 8px 14px;
+  color: #0a0c10;
+  padding: 9px 16px;
   border-radius: 8px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 2px 8px var(--glow-soft);
 }
+
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px var(--glow-soft); }
+.btn-primary:active { transform: translateY(0); }
 
 .btn-secondary {
   background: var(--panel-sub);
@@ -168,6 +242,8 @@ body {
   font-weight: 600;
   cursor: pointer;
 }
+
+.btn-secondary:hover { border-color: var(--text-muted); }
 
 .btn-icon {
   background: var(--panel-sub);
@@ -183,8 +259,13 @@ body {
 
 .btn-icon:hover {
   border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  transform: translateY(-1px);
 }
 
+/* ============================================================
+   Layout
+   ============================================================ */
 .main-container {
   max-width: 1400px;
   margin: 32px auto;
@@ -199,9 +280,9 @@ body {
 .card {
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 20px var(--card-shadow);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 1px 2px var(--card-shadow), 0 12px 28px -12px var(--card-shadow);
 }
 
 .metrics-grid {
@@ -210,23 +291,35 @@ body {
   gap: 16px;
 }
 
+.metrics-grid .card {
+  position: relative;
+  overflow: hidden;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+.header-actions-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .card-title {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .card-value {
-  font-size: 28px;
-  font-weight: 900;
-  margin-top: 8px;
+  font-size: 30px;
+  font-weight: 700;
+  margin-top: 9px;
 }
 
 .card-sub {
@@ -239,23 +332,54 @@ body {
   font-size: 10px;
   color: var(--accent-green);
   font-weight: 700;
+  letter-spacing: 0.03em;
+  animation: livePulse 2.2s ease-in-out infinite;
 }
 
-.card-risk { border-color: rgba(239, 68, 68, 0.3); }
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.btn-watchlist-star {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.btn-watchlist-star:hover { color: var(--accent-yellow); transform: scale(1.15); }
+.btn-watchlist-star.saved { color: var(--accent-yellow); }
+
+/* Radial glow instead of an edge stripe — keeps the risk/gain read
+   without resorting to a decorative side border. */
+.card-risk {
+  border-color: color-mix(in srgb, var(--accent-red) 30%, var(--border-color));
+  background: radial-gradient(120px 90px at 100% 0%, color-mix(in srgb, var(--accent-red) 8%, transparent), transparent), var(--panel-bg);
+}
 .text-risk { color: var(--accent-red); }
 .title-risk { color: var(--accent-red); }
 
-.card-gain { border-color: rgba(16, 185, 129, 0.3); }
+.card-gain {
+  border-color: color-mix(in srgb, var(--accent-green) 30%, var(--border-color));
+  background: radial-gradient(120px 90px at 100% 0%, color-mix(in srgb, var(--accent-green) 8%, transparent), transparent), var(--panel-bg);
+}
 .text-gain { color: var(--accent-green); }
 .title-gain { color: var(--accent-green); }
 
-/* Recommendation Card */
+/* ============================================================
+   Recommendation Card — the hero of the dashboard
+   ============================================================ */
 .rec-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  background: var(--panel-bg);
+  gap: 18px;
+  background: linear-gradient(165deg, var(--panel-bg), var(--panel-sub));
   border: 1px solid var(--border-color);
+  position: relative;
 }
 
 .rec-header {
@@ -267,17 +391,18 @@ body {
 }
 
 .rec-verdict {
-  font-size: 22px;
-  font-weight: 800;
-  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 700;
+  margin-top: 6px;
 }
 
 .rec-badge-pill {
   font-size: 13px;
   font-weight: 700;
-  padding: 6px 16px;
+  padding: 7px 18px;
   border-radius: 20px;
   border: 1px solid var(--border-color);
+  background: var(--panel-bg);
 }
 
 .rec-body {
@@ -291,9 +416,12 @@ body {
 }
 
 .rec-reasons h4, .rec-peers h4 {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-muted);
   margin-bottom: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 #rec-reasons-list {
@@ -305,13 +433,15 @@ body {
 }
 
 #rec-reasons-list li {
-  background: var(--panel-sub);
-  padding: 8px 12px;
-  border-radius: 8px;
+  background: var(--panel-bg);
+  padding: 9px 13px;
+  border-radius: 9px;
   border: 1px solid var(--border-color);
 }
 
-/* Analytics Section & Drawing Tools Toolbar */
+/* ============================================================
+   Analytics Section & Drawing Tools Toolbar
+   ============================================================ */
 .analytics-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -326,10 +456,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   flex-wrap: wrap;
   gap: 12px;
 }
+
+.chart-header h2 { font-size: 17px; font-weight: 700; }
 
 .chart-controls-group {
   display: flex;
@@ -343,7 +475,7 @@ body {
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: 9px;
   gap: 4px;
 }
 
@@ -351,7 +483,7 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  padding: 4px 10px;
+  padding: 5px 11px;
   font-size: 11px;
   font-weight: 600;
   border-radius: 6px;
@@ -365,17 +497,18 @@ body {
 
 .draw-btn.active {
   background: var(--accent-blue);
-  color: white;
+  color: #0a0c10;
 }
 
 .drawing-status {
   font-size: 11px;
   color: var(--accent-blue);
-  background: rgba(37, 99, 235, 0.1);
-  padding: 6px 12px;
-  border-radius: 6px;
-  margin-top: 8px;
+  background: var(--glow-soft);
+  padding: 7px 13px;
+  border-radius: 7px;
+  margin-top: 10px;
   display: inline-block;
+  font-weight: 600;
 }
 
 .timeframe-selector {
@@ -383,7 +516,7 @@ body {
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
   padding: 2px;
-  border-radius: 8px;
+  border-radius: 9px;
   gap: 2px;
 }
 
@@ -391,69 +524,89 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  padding: 4px 10px;
+  padding: 5px 11px;
   font-size: 11px;
   font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
   border-radius: 6px;
   cursor: pointer;
 }
 
 .tf-btn.active {
   background: var(--accent-blue);
-  color: white;
+  color: #0a0c10;
 }
 
 .regime-badge {
   font-size: 12px;
   font-weight: 700;
-  padding: 4px 12px;
-  background: rgba(245, 158, 11, 0.15);
+  padding: 5px 13px;
+  background: color-mix(in srgb, var(--accent-yellow) 15%, transparent);
   color: var(--accent-yellow);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-yellow) 35%, transparent);
   border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .chart-wrapper {
-  height: 320px;
+  height: 340px;
   position: relative;
   cursor: crosshair;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-/* Sidebar & Indicators */
 .sidebar-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 20px;
 }
 
+.sidebar-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 14px; }
+
 .indicator-list {
-  margin-top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 2px;
 }
 
 .indicator-item {
   display: flex;
   justify-content: space-between;
-  padding: 12px;
-  background: var(--panel-sub);
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
+  align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border-color);
   font-size: 13px;
 }
 
+.indicator-item:last-child { border-bottom: none; }
+
+.indicator-item strong { font-size: 14px; }
+
 .info-box {
-  background: rgba(37, 99, 235, 0.1);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+  background: var(--panel-sub);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
   padding: 14px;
-  border-radius: 10px;
-  margin-top: 16px;
   font-size: 12px;
-  line-height: 1.5;
 }
 
-/* Feeds & Order Book Grid */
+.info-box strong {
+  font-size: 12px;
+  color: var(--accent-blue);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.info-box p {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* ============================================================
+   Feeds: news, fact-check, order book
+   ============================================================ */
 .feeds-grid-3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -464,18 +617,23 @@ body {
   .feeds-grid-3 { grid-template-columns: 1fr; }
 }
 
+.feeds-grid-3 h3 { font-size: 14px; font-weight: 700; }
+
 .feed-list {
   margin-top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .feed-item {
-  padding: 12px;
+  padding: 12px 13px;
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 11px;
   text-decoration: none;
   color: var(--text-main);
   display: block;
@@ -484,6 +642,7 @@ body {
 
 .feed-item:hover {
   border-color: var(--accent-blue);
+  transform: translateY(-1px);
 }
 
 .feed-title-container {
@@ -504,10 +663,11 @@ body {
   justify-content: space-between;
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 7px;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-/* Order Book Widget Styles */
+/* Order Book Widget */
 .orderbook-container {
   margin-top: 16px;
   display: flex;
@@ -520,8 +680,8 @@ body {
   justify-content: space-between;
   font-size: 12px;
   background: var(--panel-sub);
-  padding: 10px;
-  border-radius: 8px;
+  padding: 11px 12px;
+  border-radius: 9px;
   border: 1px solid var(--border-color);
 }
 
@@ -534,25 +694,28 @@ body {
 .ob-table-box {
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 9px;
+  padding: 9px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .ob-title {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .ob-row {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 5px 7px;
+  border-radius: 5px;
   background: var(--panel-bg);
 }
 
@@ -567,7 +730,6 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  transition: transform 0.15s ease;
 }
 
 .fact-badge:hover {
@@ -575,77 +737,95 @@ body {
 }
 
 .fact-badge-verified {
-  background: rgba(16, 185, 129, 0.15);
+  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
   color: var(--accent-green);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent);
 }
 
 .fact-badge-rumor {
-  background: rgba(239, 68, 68, 0.15);
+  background: color-mix(in srgb, var(--accent-red) 15%, transparent);
   color: var(--accent-red);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 30%, transparent);
 }
 
-/* Loader */
+/* ============================================================
+   Loader
+   ============================================================ */
 .loader-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 100px 0;
-  gap: 16px;
+  padding: 120px 0;
+  gap: 18px;
   color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--border-color);
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-color);
   border-top-color: var(--accent-blue);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-/* Modal Popover Styles */
+/* ============================================================
+   Modals
+   ============================================================ */
 .modal-overlay, .tour-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(6, 8, 11, 0.6);
+  backdrop-filter: blur(6px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: overlayFade 0.2s ease;
+}
+
+@keyframes overlayFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-card, .tour-card {
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 24px;
+  border-radius: 18px;
+  padding: 26px;
   max-width: 480px;
   width: 90%;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.35);
   display: flex;
   flex-direction: column;
   gap: 14px;
+  animation: modalRise 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalRise {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .tour-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 16px;
+  gap: 12px;
   margin-top: 14px;
 }
 
-/* Portfolio Modal Styles */
+/* Portfolio Modal */
 .portfolio-modal-card {
   max-width: 700px;
   width: 95%;
@@ -656,7 +836,7 @@ body {
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: 9px;
   gap: 4px;
 }
 
@@ -665,16 +845,16 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  padding: 8px;
+  padding: 9px;
   font-size: 12px;
   font-weight: 700;
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
 }
 
 .port-tab-btn.active {
   background: var(--accent-blue);
-  color: white;
+  color: #0a0c10;
 }
 
 .port-tab-content {
@@ -698,8 +878,8 @@ body {
   align-items: center;
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 11px 14px;
+  border-radius: 9px;
   font-size: 13px;
 }
 
@@ -710,8 +890,8 @@ body {
   align-items: flex-end;
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
-  padding: 14px;
-  border-radius: 10px;
+  padding: 15px;
+  border-radius: 11px;
 }
 
 @media (max-width: 600px) {
@@ -727,10 +907,11 @@ body {
 }
 
 .form-label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .position-form-group select, .position-form-group input {
@@ -744,6 +925,11 @@ body {
   width: 100%;
 }
 
+.position-form-group select:focus, .position-form-group input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+
 .btn-group-align {
   justify-content: flex-end;
 }
@@ -753,12 +939,13 @@ body {
   justify-content: space-between;
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
-  padding: 12px;
-  border-radius: 8px;
+  padding: 13px;
+  border-radius: 9px;
   font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-/* Supported Stocks Modal Grid */
+/* Supported Stocks Modal */
 .stocks-modal-card {
   max-width: 750px;
   width: 95%;
@@ -769,10 +956,15 @@ body {
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 11px 14px;
+  border-radius: 9px;
   font-size: 13px;
   outline: none;
+}
+
+.stocks-search-box input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--glow-soft);
 }
 
 .stocks-directory-grid {
@@ -787,8 +979,8 @@ body {
 .stock-dir-item {
   background: var(--panel-sub);
   border: 1px solid var(--border-color);
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 11px 13px;
+  border-radius: 9px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -797,7 +989,8 @@ body {
 
 .stock-dir-item:hover {
   border-color: var(--accent-blue);
-  background: rgba(37, 99, 235, 0.05);
+  background: var(--glow-soft);
+  transform: translateY(-1px);
 }
 
 .stock-dir-symbol {
@@ -809,6 +1002,7 @@ body {
 .stock-dir-name {
   font-size: 11px;
   color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
 }
 
 .modal-header, .tour-header {
@@ -820,11 +1014,13 @@ body {
 .badge-modal {
   font-size: 11px;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: rgba(37, 99, 235, 0.15);
+  padding: 4px 11px;
+  border-radius: 7px;
+  background: var(--glow-soft);
   color: var(--accent-blue);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 35%, transparent);
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.02em;
 }
 
 .modal-close-btn, .tour-close-btn {
@@ -833,7 +1029,10 @@ body {
   color: var(--text-muted);
   font-size: 22px;
   cursor: pointer;
+  line-height: 1;
 }
+
+.modal-close-btn:hover, .tour-close-btn:hover { color: var(--text-main); }
 
 .modal-claim-title {
   font-size: 16px;
@@ -857,10 +1056,10 @@ body {
 .modal-desc {
   font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.55;
   background: var(--panel-sub);
-  padding: 10px;
-  border-radius: 8px;
+  padding: 11px;
+  border-radius: 9px;
   border: 1px solid var(--border-color);
 }
 
@@ -872,5 +1071,31 @@ body {
 
 .tour-highlight {
   border: 2px solid var(--accent-blue) !important;
-  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5) !important;
+  box-shadow: 0 0 0 5px var(--glow-soft) !important;
+  border-radius: 18px;
+}
+
+/* ============================================================
+   Scrollbars — quiet, on-brand
+   ============================================================ */
+.port-list-container::-webkit-scrollbar,
+.stocks-directory-grid::-webkit-scrollbar,
+.feed-list::-webkit-scrollbar,
+.ob-table-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+.port-list-container::-webkit-scrollbar-thumb,
+.stocks-directory-grid::-webkit-scrollbar-thumb,
+.feed-list::-webkit-scrollbar-thumb,
+.ob-table-box::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+
+.port-list-container::-webkit-scrollbar-thumb:hover,
+.stocks-directory-grid::-webkit-scrollbar-thumb:hover,
+.feed-list::-webkit-scrollbar-thumb:hover,
+.ob-table-box::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-blue);
 }
