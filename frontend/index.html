@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Stock Intelligence System</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Chart.js for technical plots -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -16,12 +15,11 @@
       <div class="brand-icon">⚡</div>
       <div>
         <h1>Stock Intelligence System <span class="badge">PRO</span></h1>
-        <p>Quantile Predictions • HMM Regime Detection • Verified Signals</p>
+        <p>Live Brokerage Sync • Bracket Orders • Real-Time Stream</p>
       </div>
     </div>
 
     <div class="controls">
-      <!-- Quick Chips -->
       <div class="quick-chips">
         <button onclick="selectTicker('AAPL')">Apple (AAPL)</button>
         <button onclick="selectTicker('NVDA')">Nvidia (NVDA)</button>
@@ -30,49 +28,33 @@
         <button onclick="selectTicker('AMZN')">Amazon (AMZN)</button>
       </div>
       
-      <!-- Search Form with Auto-Complete Dropdown -->
       <form id="search-form" onsubmit="handleSearch(event)">
-        <input 
-          type="text" 
-          id="ticker-input" 
-          list="stock-suggestions" 
-          placeholder="Search Ticker or Company..." 
-          value="AAPL" 
-          autocomplete="off"
-        />
+        <input type="text" id="ticker-input" list="stock-suggestions" placeholder="Search Ticker..." value="AAPL" autocomplete="off"/>
         <datalist id="stock-suggestions">
           <option value="AAPL">Apple Inc. (AAPL)</option>
           <option value="NVDA">Nvidia Corp. (NVDA)</option>
           <option value="TSLA">Tesla Inc. (TSLA)</option>
           <option value="MSFT">Microsoft Corp. (MSFT)</option>
           <option value="AMZN">Amazon.com Inc. (AMZN)</option>
-          <option value="GOOGL">Alphabet / Google (GOOGL)</option>
-          <option value="META">Meta / Facebook (META)</option>
-          <option value="NFLX">Netflix Inc. (NFLX)</option>
-          <option value="AMD">Advanced Micro Devices (AMD)</option>
-          <option value="JPM">JPMorgan Chase (JPM)</option>
         </datalist>
         <button type="submit" class="btn-primary">Search</button>
       </form>
       
-      <!-- Utility Buttons -->
-      <button id="portfolio-btn" class="btn-icon" onclick="openPortfolioModal()" title="Manage Watchlist & Portfolio">⭐ Portfolio & Watchlist</button>
-      <button id="stocks-btn" class="btn-icon" onclick="openStocksModal()" title="View Supported Stocks">📊 Supported Stocks</button>
-      <button id="tour-btn" class="btn-icon" onclick="startTour()" title="Interactive Tour">💡 Tour</button>
+      <button id="portfolio-btn" class="btn-icon" onclick="openPortfolioModal()" title="Portfolio & Watchlist">⭐ Portfolio</button>
+      <button id="broker-btn" class="btn-icon" onclick="openBrokerModal()" title="Broker Execution">🏛️ Broker Router</button>
+      <button id="stocks-btn" class="btn-icon" onclick="openStocksModal()" title="Supported Stocks">📊 Stocks</button>
+      <button id="tour-btn" class="btn-icon" onclick="startTour()" title="Tour">💡 Tour</button>
       <button id="theme-btn" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
     </div>
   </header>
 
-  <!-- Loading State -->
   <div id="loader" class="loader-container">
     <div class="spinner"></div>
-    <p>Computing Market Regimes, Conformal Bounds & Rating Engine...</p>
+    <p>Syncing Live Broker Ledger, Computing HMM Regimes & Conformal Bounds...</p>
   </div>
 
-  <!-- Dashboard Container -->
   <main id="dashboard" class="main-container hidden">
 
-    <!-- Top Metric Cards -->
     <section class="metrics-grid">
       <div class="card" id="tour-step-1">
         <div class="card-header">
@@ -87,38 +69,35 @@
       </div>
 
       <div class="card" id="tour-step-2">
-        <div class="card-header">
-          <span class="card-title">Predicted Target Return</span>
-        </div>
+        <div class="card-header"><span class="card-title">Predicted Target Return</span></div>
         <div class="card-value" id="val-return">+0.00%</div>
         <div class="card-sub">Est. Target: <strong id="val-target">$0.00</strong></div>
       </div>
 
       <div class="card card-risk" id="tour-step-3">
-        <div class="card-header">
-          <span class="card-title title-risk">90% Safety Floor (Lower)</span>
-        </div>
+        <div class="card-header"><span class="card-title title-risk">90% Safety Floor (Lower)</span></div>
         <div class="card-value text-risk" id="val-lower">$0.00</div>
         <div class="card-sub">Conformal Risk Floor</div>
       </div>
 
       <div class="card card-gain" id="tour-step-4">
-        <div class="card-header">
-          <span class="card-title title-gain">90% Upside Ceiling (Upper)</span>
-        </div>
+        <div class="card-header"><span class="card-title title-gain">90% Upside Ceiling (Upper)</span></div>
         <div class="card-value text-gain" id="val-upper">$0.00</div>
         <div class="card-sub">Conformal Return Upper</div>
       </div>
     </section>
 
-    <!-- Recommendation & Peer Discovery Banner -->
+    <!-- Recommendation & Quick Trade Banner -->
     <section class="card rec-card" id="tour-step-6">
       <div class="rec-header">
         <div>
           <span class="card-title">AI Recommendation Engine</span>
           <h2 id="rec-verdict-text" class="rec-verdict">Analyzing Verdict...</h2>
         </div>
-        <div id="rec-badge" class="rec-badge-pill">Score: 0</div>
+        <div class="rec-actions-group">
+          <button onclick="openBrokerModal()" class="btn-primary" style="padding: 10px 18px; font-size: 13px;">⚡ Execute Live Trade</button>
+          <div id="rec-badge" class="rec-badge-pill">Score: 0</div>
+        </div>
       </div>
       <div class="rec-body">
         <div class="rec-reasons">
@@ -132,7 +111,6 @@
       </div>
     </section>
 
-    <!-- Analytics & Technical Indicators -->
     <section class="analytics-grid">
       <div class="card chart-card" id="tour-step-7">
         <div class="chart-header">
@@ -142,14 +120,12 @@
           </div>
           <div class="chart-controls-group">
             <div id="val-regime" class="regime-badge">HMM State: Neutral</div>
-            <!-- Technical Drawing Tools Toolbar -->
             <div class="drawing-tools-toolbar">
               <button class="draw-btn active" onclick="toggleDrawingTool('none', this)">Normal</button>
               <button class="draw-btn" onclick="toggleDrawingTool('fibonacci', this)">📐 Fibonacci</button>
               <button class="draw-btn" onclick="toggleDrawingTool('support', this)">🛡️ Support/Resistance</button>
               <button class="draw-btn" onclick="clearDrawings()" title="Clear Tools">🗑️ Reset</button>
             </div>
-            <!-- Timeframe Selector Buttons -->
             <div class="timeframe-selector">
               <button class="tf-btn" onclick="setTimeframe('1D', this)">1D</button>
               <button class="tf-btn" onclick="setTimeframe('1W', this)">1W</button>
@@ -159,9 +135,7 @@
             </div>
           </div>
         </div>
-        <div class="chart-wrapper">
-          <canvas id="stockChart"></canvas>
-        </div>
+        <div class="chart-wrapper"><canvas id="stockChart"></canvas></div>
         <div id="drawing-status-msg" class="drawing-status hidden"></div>
       </div>
 
@@ -169,40 +143,32 @@
         <div>
           <h3>Calculated Indicators</h3>
           <div class="indicator-list">
-            <div class="indicator-item">
-              <span>RSI (14) Momentum</span>
-              <strong id="val-rsi">0.00</strong>
-            </div>
-            <div class="indicator-item">
-              <span>CBOE VIX Volatility</span>
-              <strong id="val-vix">0.00</strong>
-            </div>
-            <div class="indicator-item">
-              <span>MACD Histogram</span>
-              <strong id="val-macd">0.00</strong>
-            </div>
+            <div class="indicator-item"><span>RSI (14) Momentum</span><strong id="val-rsi">0.00</strong></div>
+            <div class="indicator-item"><span>CBOE VIX Volatility</span><strong id="val-vix">0.00</strong></div>
+            <div class="indicator-item"><span>MACD Histogram</span><strong id="val-macd">0.00</strong></div>
           </div>
         </div>
-
         <div class="info-box">
           <strong>ℹ️ Model Context</strong>
-          <p id="val-context">
-            Evaluating historical bounds and next-day price envelope.
-          </p>
+          <p id="val-context">Evaluating historical bounds and next-day price envelope.</p>
         </div>
       </div>
     </section>
 
-    <!-- Feeds: News, Rumor Verifier & Sub-Second Order Book Stream -->
-    <section class="feeds-grid-3">
+    <section class="feeds-grid-2">
       <div class="card" id="tour-step-9">
-        <h3>📰 Real-time Financial News</h3>
+        <div class="card-header">
+          <h3>📰 Real-time Financial News</h3>
+          <div class="news-filter-tabs">
+            <button class="news-tab-btn active" onclick="switchNewsTab('general', this)">General News</button>
+            <button class="news-tab-btn" onclick="switchNewsTab('verified', this)">Verified News</button>
+            <button class="news-tab-btn" onclick="switchNewsTab('rumored', this)">Rumored News</button>
+          </div>
+        </div>
         <div id="news-container" class="feed-list"></div>
-      </div>
-
-      <div class="card" id="tour-step-10">
-        <h3>🛡️ Rumor & Claim Verification</h3>
-        <div id="facts-container" class="feed-list"></div>
+        <div id="news-more-wrapper" class="news-more-wrapper hidden">
+          <button onclick="loadMoreNews()" class="btn-secondary btn-more-news">More News</button>
+        </div>
       </div>
 
       <div class="card orderbook-card" id="tour-step-11">
@@ -217,14 +183,8 @@
             <div>Spread: <strong id="ob-spread">$0.00</strong></div>
           </div>
           <div class="ob-tables-wrapper">
-            <div class="ob-table-box">
-              <span class="ob-title text-gain">Bids (Buy Orders)</span>
-              <div id="ob-bids-list"></div>
-            </div>
-            <div class="ob-table-box">
-              <span class="ob-title text-risk">Asks (Sell Orders)</span>
-              <div id="ob-asks-list"></div>
-            </div>
+            <div class="ob-table-box"><span class="ob-title text-gain">Bids (Buy Orders)</span><div id="ob-bids-list"></div></div>
+            <div class="ob-table-box"><span class="ob-title text-risk">Asks (Sell Orders)</span><div id="ob-asks-list"></div></div>
           </div>
         </div>
       </div>
@@ -232,54 +192,91 @@
 
   </main>
 
-  <!-- Portfolio & Watchlist Manager Modal -->
+  <!-- Direct Brokerage Order Execution Modal (With Bracket Triggers) -->
+  <div id="broker-modal" class="modal-overlay hidden">
+    <div class="modal-card portfolio-modal-card">
+      <div class="modal-header">
+        <span class="badge-modal">Direct Brokerage Order Router</span>
+        <button onclick="closeBrokerModal()" class="modal-close-btn">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted);">Route live orders instantly via direct API integration with bracket risk controls.</p>
+      
+      <div class="position-form-container" style="grid-template-columns: 1fr 1fr; margin-top: 10px;">
+        <div class="position-form-group">
+          <label class="form-label">Select Broker API</label>
+          <select id="broker-select">
+            <option value="alpaca">Alpaca Paper / Live API</option>
+            <option value="interactive_brokers">Interactive Brokers (IBKR)</option>
+            <option value="robinhood">Robinhood Securities API</option>
+          </select>
+        </div>
+        <div class="position-form-group">
+          <label class="form-label">Target Symbol</label>
+          <input type="text" id="broker-ticker-input" value="AAPL" readonly />
+        </div>
+        <div class="position-form-group">
+          <label class="form-label">Order Side</label>
+          <select id="broker-side-select">
+            <option value="buy">BUY (Long)</option>
+            <option value="sell">SELL (Short / Exit)</option>
+          </select>
+        </div>
+        <div class="position-form-group">
+          <label class="form-label">Quantity (Shares)</label>
+          <input type="number" id="broker-qty-input" value="10" min="1" />
+        </div>
+        <div class="position-form-group">
+          <label class="form-label">Order Type</label>
+          <select id="broker-type-select" onchange="toggleLimitPriceField()">
+            <option value="market">Market Order</option>
+            <option value="limit">Limit Order</option>
+          </select>
+        </div>
+        <div class="position-form-group hidden" id="limit-price-group">
+          <label class="form-label">Limit Price ($)</label>
+          <input type="number" id="broker-limit-input" placeholder="150.00" step="0.01" />
+        </div>
+        <div class="position-form-group">
+          <label class="form-label">🛡️ Stop-Loss Price ($)</label>
+          <input type="number" id="broker-sl-input" placeholder="Optional (e.g. 170.00)" step="0.01" />
+        </div>
+        <div class="position-form-group">
+          <label class="form-label">🎯 Take-Profit Price ($)</label>
+          <input type="number" id="broker-tp-input" placeholder="Optional (e.g. 210.00)" step="0.01" />
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button onclick="closeBrokerModal()" class="btn-secondary">Cancel</button>
+        <button onclick="submitBrokerOrder()" class="btn-primary" style="background: var(--accent-green);">🚀 Submit Bracket Order</button>
+      </div>
+
+      <div id="broker-response-box" class="hidden" style="margin-top: 14px; padding: 12px; background: var(--panel-sub); border: 1px solid var(--border-color); border-radius: 8px; font-size: 12px;"></div>
+
+      <div class="modal-footer"><button onclick="closeBrokerModal()" class="btn-primary">Close</button></div>
+    </div>
+  </div>
+
+  <!-- Portfolio & Watchlist Tracker Modal (Synced with Live Broker Ledger) -->
   <div id="portfolio-modal" class="modal-overlay hidden">
     <div class="modal-card portfolio-modal-card">
       <div class="modal-header">
-        <span class="badge-modal">Portfolio & Watchlist Tracker</span>
+        <span class="badge-modal">Portfolio & Live Broker Sync</span>
         <button onclick="closePortfolioModal()" class="modal-close-btn">&times;</button>
       </div>
-      
       <div class="portfolio-tabs">
         <button class="port-tab-btn active" onclick="switchPortfolioTab('watchlist', this)">⭐ Custom Watchlist</button>
-        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Portfolio Positions</button>
+        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Live Broker Positions</button>
       </div>
-
-      <!-- Watchlist Tab Content -->
-      <div id="tab-watchlist" class="port-tab-content">
-        <div id="watchlist-items-container" class="port-list-container"></div>
-      </div>
-
-      <!-- Portfolio Positions Tab Content -->
+      <div id="tab-watchlist" class="port-tab-content"><div id="watchlist-items-container" class="port-list-container"></div></div>
       <div id="tab-positions" class="port-tab-content hidden">
-        <div class="position-form-container">
-          <div class="position-form-group">
-            <label class="form-label">Select Stock</label>
-            <select id="pos-ticker-select"></select>
-          </div>
-          <div class="position-form-group">
-            <label class="form-label">No. of Shares</label>
-            <input type="number" id="pos-shares-input" placeholder="10" value="10" min="1" />
-          </div>
-          <div class="position-form-group">
-            <label class="form-label">Buy Price ($)</label>
-            <input type="number" id="pos-price-input" placeholder="150" value="150" step="0.01" />
-          </div>
-          <div class="position-form-group btn-group-align">
-            <button onclick="addPortfolioPosition()" class="btn-primary">Add Position</button>
-          </div>
-        </div>
-
         <div class="port-summary-bar">
-          <div>Total Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
-          <div>Total Gain/Loss: <strong id="port-total-pl">$0.00</strong></div>
+          <div>Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
+          <div>Buying Power: <strong id="port-cash-val">$0.00</strong></div>
         </div>
         <div id="positions-items-container" class="port-list-container"></div>
       </div>
-
-      <div class="modal-footer">
-        <button onclick="closePortfolioModal()" class="btn-primary">Done</button>
-      </div>
+      <div class="modal-footer"><button onclick="closePortfolioModal()" class="btn-primary">Done</button></div>
     </div>
   </div>
 
@@ -291,20 +288,13 @@
         <button onclick="closeStocksModal()" class="modal-close-btn">&times;</button>
       </div>
       <h3 class="modal-claim-title">Indexed Database Stocks & Equities</h3>
-      <p class="modal-body" style="font-size: 12px; color: var(--text-muted);">
-        Select any supported stock below to instantly load its historical model data, live price action, and AI intelligence feeds.
-      </p>
-      <div class="stocks-search-box">
-        <input type="text" id="modal-stock-filter" placeholder="Filter stocks by name or symbol..." oninput="filterStockDirectory()" />
-      </div>
+      <div class="stocks-search-box"><input type="text" id="modal-stock-filter" placeholder="Filter stocks..." oninput="filterStockDirectory()" /></div>
       <div id="stocks-directory-list" class="stocks-directory-grid"></div>
-      <div class="modal-footer">
-        <button onclick="closeStocksModal()" class="btn-primary">Close Directory</button>
-      </div>
+      <div class="modal-footer"><button onclick="closeStocksModal()" class="btn-primary">Close Directory</button></div>
     </div>
   </div>
 
-  <!-- Fact-Check Detail Modal Popover -->
+  <!-- Fact-Check Detail Modal -->
   <div id="fact-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -315,15 +305,13 @@
       <div class="modal-body">
         <p><strong>Publisher Source:</strong> <span id="fact-modal-publisher">-</span></p>
         <p><strong>Rating Verdict:</strong> <span id="fact-modal-rating" class="modal-rating-text">-</span></p>
-        <p id="fact-modal-desc" class="modal-desc">Detailed verification feedback from fact-checking network.</p>
+        <p id="fact-modal-desc" class="modal-desc">-</p>
       </div>
-      <div class="modal-footer">
-        <button onclick="closeFactModal()" class="btn-primary">Dismiss</button>
-      </div>
+      <div class="modal-footer"><button onclick="closeFactModal()" class="btn-primary">Dismiss</button></div>
     </div>
   </div>
 
-  <!-- Interactive Guided Tour Modal Overlay -->
+  <!-- Guided Tour Modal -->
   <div id="tour-modal" class="tour-modal-overlay hidden">
     <div class="tour-card">
       <div class="tour-header">
