@@ -1,7 +1,10 @@
 let stockChart = null;
 let rawHistoricalData = [];
 let activeTimeframe = 'ALL';
+let currentArticles = [];
 let currentFactClaims = [];
+let activeNewsFilter = 'general';
+let newsDisplayLimit = 5;
 let activeTicker = 'AAPL';
 let activeCurrentPrice = 0.0;
 let orderBookSocket = null;
@@ -18,30 +21,7 @@ const COMPANY_NAME_MAP = {
   "AMD": "Advanced Micro Devices",
   "AVGO": "Broadcom Inc.",
   "JPM": "JPMorgan Chase",
-  "BRK-B": "Berkshire Hathaway",
-  "DIS": "Walt Disney Co.",
-  "JNJ": "Johnson & Johnson",
-  "V": "Visa Inc.",
-  "MA": "Mastercard Inc.",
-  "XOM": "Exxon Mobil",
-  "CVX": "Chevron Corp.",
-  "PEP": "PepsiCo Inc.",
-  "KO": "Coca-Cola Co.",
-  "PFE": "Pfizer Inc.",
-  "INTC": "Intel Corp.",
-  "CSCO": "Cisco Systems",
-  "VZ": "Verizon Communications",
-  "WMT": "Walmart Inc.",
-  "HD": "Home Depot",
-  "BA": "Boeing Co.",
-  "IBM": "IBM Corp.",
-  "GE": "General Electric",
-  "NKE": "Nike Inc.",
-  "GS": "Goldman Sachs",
-  "MS": "Morgan Stanley",
-  "PYPL": "PayPal Holdings",
-  "INTU": "Intuit Inc.",
-  "QCOM": "Qualcomm Inc."
+  "DIS": "Walt Disney Co."
 };
 
 const VERIFIED_FINANCIAL_SOURCES = [
@@ -66,7 +46,7 @@ function toggleTheme() {
 }
 
 // ==========================================
-// Technical Drawing Tools Logic (Fibonacci & S/R)
+// Technical Drawing Tools Logic
 // ==========================================
 function toggleDrawingTool(toolName, btnElem) {
   document.querySelectorAll('.draw-btn').forEach(b => b.classList.remove('active'));
@@ -541,6 +521,7 @@ async function fetchIntelligence(tickerInputVal) {
     ]);
 
     rawHistoricalData = resData.historical_chart || [];
+    currentArticles = resNews.articles || [];
     currentFactClaims = resFacts.claims || [];
     activeCurrentPrice = resData.current_price;
 
@@ -586,8 +567,12 @@ async function fetchIntelligence(tickerInputVal) {
     document.getElementById('val-macd').textContent = resData.technical_indicators.macd;
     document.getElementById('val-regime').textContent = `Regime: ${resData.market_regime.label}`;
 
+    let modelSourceLabel = resData.predictions.lstm_active 
+      ? "Scratch-Built LSTM Sequential Neural Net & Conformal XGBoost" 
+      : "XGBoost Conformal Ensemble";
+
     document.getElementById('val-context').innerHTML = `
-      XGBoost predicts a target of <strong>$${resData.predictions.target_price.toFixed(2)}</strong> 
+      ${modelSourceLabel} predicts a target of <strong>$${resData.predictions.target_price.toFixed(2)}</strong> 
       for <strong>${resData.company_name}</strong> with a 90% confidence corridor between 
       <strong>$${resData.predictions.lower_bound_price.toFixed(2)}</strong> 
       and <strong>$${resData.predictions.upper_bound_price.toFixed(2)}</strong>.
@@ -596,8 +581,9 @@ async function fetchIntelligence(tickerInputVal) {
     const filteredData = filterDataByTimeframe(rawHistoricalData, activeTimeframe);
     renderChart(activeTicker, filteredData);
 
-    renderNews(resNews.articles || [], currentFactClaims);
-    renderFactChecks(currentFactClaims);
+    // Reset pagination limit on new stock fetch and render news tab
+    newsDisplayLimit = 5;
+    renderMergedNewsSection();
 
     connectOrderBookStream(activeTicker);
 
@@ -611,64 +597,103 @@ async function fetchIntelligence(tickerInputVal) {
   }
 }
 
-function renderNews(articles, claims) {
-  const container = document.getElementById('news-container');
-  if (!articles || articles.length === 0) {
-    container.innerHTML = '<p style="color: var(--text-muted);">No news articles available.</p>';
-    return;
-  }
+// ==========================================
+// Merged News & Rumor Sub-Tab Management (Strict Separation)
+// ==========================================
+function switchNewsTab(filterType, btnElem) {
+  activeNewsFilter = filterType;
+  newsDisplayLimit = 5; // Reset limit when switching tabs
 
-  container.innerHTML = articles.map((art) => {
-    const matchedClaimIdx = claims.findIndex(c => 
-      c.claim && art.title && art.title.toLowerCase().includes(c.claim.toLowerCase().split(' ')[0])
-    );
+  document.querySelectorAll('.news-tab-btn').forEach(b => b.classList.remove('active'));
+  if (btnElem) btnElem.classList.add('active');
 
-    const sourceName = (art.source || '').toLowerCase();
-    const isVerifiedOutlet = VERIFIED_FINANCIAL_SOURCES.some(src => sourceName.includes(src));
-
-    let badgeHtml = '';
-    if (matchedClaimIdx !== -1) {
-      badgeHtml = `<span class="fact-badge fact-badge-rumor" onclick="event.preventDefault(); openFactModal(${matchedClaimIdx});">⚠️ Rumor Checked</span>`;
-    } else if (isVerifiedOutlet) {
-      badgeHtml = `<span class="fact-badge fact-badge-verified" onclick="event.preventDefault(); alert('Headline verified by established financial news outlet.');">🛡️ Verified Source</span>`;
-    } else {
-      badgeHtml = `<span class="fact-badge" style="background: rgba(100, 116, 139, 0.15); color: var(--text-muted); border: 1px solid rgba(100, 116, 139, 0.3);">📰 News</span>`;
-    }
-
-    return `
-      <a href="${art.url}" target="_blank" class="feed-item">
-        <div class="feed-title-container">
-          <h4>${art.title}</h4>
-          ${badgeHtml}
-        </div>
-        <div class="feed-meta">
-          <span>${art.source}</span>
-          <span>${art.published_at}</span>
-        </div>
-      </a>
-    `;
-  }).join('');
+  renderMergedNewsSection();
 }
 
-function renderFactChecks(claims) {
-  const container = document.getElementById('facts-container');
-  if (!claims || claims.length === 0) {
-    container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">No active unverified market rumors detected.</p>';
+function loadMoreNews() {
+  newsDisplayLimit += 5;
+  renderMergedNewsSection();
+}
+
+function renderMergedNewsSection() {
+  const container = document.getElementById('news-container');
+  const moreContainer = document.getElementById('news-more-wrapper');
+  if (!container) return;
+
+  let dataset = [];
+
+  if (activeNewsFilter === 'general') {
+    // Strictly general news items
+    dataset = currentArticles;
+  } else if (activeNewsFilter === 'verified') {
+    // Strictly verified institutional sources
+    dataset = currentArticles.filter(art => {
+      const src = (art.source || '').toLowerCase();
+      return VERIFIED_FINANCIAL_SOURCES.some(vs => src.includes(vs));
+    });
+  } else if (activeNewsFilter === 'rumored') {
+    // Strictly unverified rumor claims and fact-checks
+    dataset = currentFactClaims.map((claim, idx) => ({
+      title: `"${claim.claim}"`,
+      url: '#',
+      source: `Source: ${claim.publisher}`,
+      published_at: 'Rumor Checked',
+      isClaim: true,
+      claimIndex: idx,
+      rating: claim.rating
+    }));
+  }
+
+  if (dataset.length === 0) {
+    container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; padding: 10px;">No ${activeNewsFilter} articles or claims available for this stock.</p>`;
+    moreContainer.classList.add('hidden');
     return;
   }
 
-  container.innerHTML = claims.map((c, idx) => `
-    <div class="feed-item" style="cursor: pointer;" onclick="openFactModal(${idx})">
-      <div class="feed-title-container">
-        <h4 style="font-weight: 500;">"${c.claim}"</h4>
-        <span class="fact-badge fact-badge-rumor">Inspect Claim</span>
-      </div>
-      <div class="feed-meta">
-        <span>Source: ${c.publisher}</span>
-        <strong style="color: var(--accent-red);">${c.rating}</strong>
-      </div>
-    </div>
-  `).join('');
+  const visibleItems = dataset.slice(0, newsDisplayLimit);
+
+  container.innerHTML = visibleItems.map(item => {
+    if (item.isClaim) {
+      return `
+        <div class="feed-item" style="cursor: pointer;" onclick="openFactModal(${item.claimIndex})">
+          <div class="feed-title-container">
+            <h4 style="font-weight: 500;">${item.title}</h4>
+            <span class="fact-badge fact-badge-rumor">Inspect Claim</span>
+          </div>
+          <div class="feed-meta">
+            <span>${item.source}</span>
+            <strong style="color: var(--accent-red);">${item.rating}</strong>
+          </div>
+        </div>
+      `;
+    } else {
+      const sourceName = (item.source || '').toLowerCase();
+      const isVerifiedOutlet = VERIFIED_FINANCIAL_SOURCES.some(src => sourceName.includes(src));
+
+      let badgeHtml = isVerifiedOutlet 
+        ? `<span class="fact-badge fact-badge-verified" onclick="event.preventDefault(); alert('Headline verified by established financial news outlet.');">🛡️ Verified Source</span>`
+        : `<span class="fact-badge" style="background: rgba(100, 116, 139, 0.15); color: var(--text-muted); border: 1px solid rgba(100, 116, 139, 0.3);">📰 News</span>`;
+
+      return `
+        <a href="${item.url}" target="_blank" class="feed-item">
+          <div class="feed-title-container">
+            <h4>${item.title}</h4>
+            ${badgeHtml}
+          </div>
+          <div class="feed-meta">
+            <span>${item.source}</span>
+            <span>${item.published_at}</span>
+          </div>
+        </a>
+      `;
+    }
+  }).join('');
+
+  if (dataset.length > newsDisplayLimit) {
+    moreContainer.classList.remove('hidden');
+  } else {
+    moreContainer.classList.add('hidden');
+  }
 }
 
 function openFactModal(claimIdx) {
@@ -688,18 +713,18 @@ function closeFactModal() {
   document.getElementById('fact-modal').classList.add('hidden');
 }
 
-// Guided Tour Steps (Expanded to 11 Steps with precise targeted element IDs)
+// Guided Tour Steps
 const tourSteps = [
   { id: "tour-step-1", title: "1. Current Market Price", desc: "Displays live execution price and allows one-click star saving to your custom watchlist." },
-  { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by classical ML ensemble." },
+  { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the hybrid LSTM + XGBoost architecture." },
   { id: "tour-step-3", title: "3. 90% Safety Floor", desc: "Calculates downside risk floor using Quantile Conformal XGBoost." },
   { id: "tour-step-4", title: "4. 90% Upside Ceiling", desc: "Calculates upside potential ceiling using Quantile Conformal XGBoost." },
   { id: "stocks-btn", title: "5. Supported Stocks Directory Tab", desc: "Click here anytime to open the modal directory listing all indexed database equities." },
   { id: "portfolio-btn", title: "6. Portfolio & Watchlist Tracker", desc: "Manage your saved custom watchlists and simulate portfolio gain/loss history over time." },
   { id: "tour-step-6", title: "7. AI Recommendation Engine", desc: "Evaluates RSI momentum, HMM regimes, and risk corridors to give a Signal Score verdict." },
-  { id: "tour-step-7", title: "8. Technical Trajectory & Controls", desc: "Visualizes moving price history with interactive 1D, 1W, 1M, 1Y, and ALL timeframe toggles." },
+  { id: "tour-step-7", title: "8. Technical Trajectory & Controls", desc: "Visualizes moving price history with Fibonacci and Support/Resistance overlay tools." },
   { id: "tour-step-8", title: "9. Calculated Technical Indicators", desc: "Features 14-day RSI, MACD histogram, and VIX volatility indicators." },
-  { id: "tour-step-9", title: "10. Real-Time Financial News", desc: "Aggregates headlines with interactive fact-check verification badges." },
+  { id: "tour-step-9", title: "10. Real-Time Financial News", desc: "Aggregates filtered news feeds, verified outlets, and rumor inspections with pagination." },
   { id: "tour-step-11", title: "11. Sub-Second Order Book Stream", desc: "Streams real-time Level 1 & Level 2 order book buy/sell depth quotes." }
 ];
 

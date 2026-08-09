@@ -193,18 +193,26 @@
       </div>
     </section>
 
-    <!-- Feeds: News, Rumor Verifier & Sub-Second Order Book Stream -->
-    <section class="feeds-grid-3">
+    <!-- Feeds: Merged Real-time Financial News & Order Book Stream -->
+    <section class="feeds-grid-2">
+      <!-- Merged Real-time Financial News Card with Sub-tabs -->
       <div class="card" id="tour-step-9">
-        <h3>📰 Real-time Financial News</h3>
+        <div class="card-header">
+          <h3>📰 Real-time Financial News</h3>
+          <!-- News Filter Sub-tabs -->
+          <div class="news-filter-tabs">
+            <button class="news-tab-btn active" onclick="switchNewsTab('general', this)">General News</button>
+            <button class="news-tab-btn" onclick="switchNewsTab('verified', this)">Verified News</button>
+            <button class="news-tab-btn" onclick="switchNewsTab('rumored', this)">Rumored News</button>
+          </div>
+        </div>
         <div id="news-container" class="feed-list"></div>
+        <div id="news-more-wrapper" class="news-more-wrapper hidden">
+          <button onclick="loadMoreNews()" class="btn-secondary btn-more-news">More News</button>
+        </div>
       </div>
 
-      <div class="card" id="tour-step-10">
-        <h3>🛡️ Rumor & Claim Verification</h3>
-        <div id="facts-container" class="feed-list"></div>
-      </div>
-
+      <!-- Sub-Second Order Book Stream -->
       <div class="card orderbook-card" id="tour-step-11">
         <div class="card-header">
           <h3>⚡ Level 1 & 2 Order Book Stream</h3>

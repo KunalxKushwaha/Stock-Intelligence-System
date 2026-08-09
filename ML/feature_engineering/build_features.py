@@ -6,21 +6,28 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime
 
-# Resolve project root directory
 root_dir = Path(__file__).resolve().parent.parent.parent
 
 def engineer_features(ticker: str = "AAPL", start_date: str = "2013-01-01") -> pd.DataFrame:
-    """
-    Loads historical CSV data from the database/ folder, appends live trading
-    data up to today via yfinance, and computes all required ML/UI technical features.
-    """
     clean_ticker = ticker.upper().strip()
     db_folder = root_dir / "database"
-    csv_file = db_folder / f"{clean_ticker}_data.csv"
     
+    # Recursively locate CSV file in database folder or subfolders (like individual_stocks_5yr)
+    csv_file = None
+    if db_folder.exists():
+        target_name = f"{clean_ticker}_data.csv"
+        for p in db_folder.rglob("*.csv"):
+            if p.name.upper() == target_name.upper():
+                csv_file = p
+                break
+        if not csv_file:
+            for p in db_folder.rglob("*.csv"):
+                if clean_ticker in p.name.upper():
+                    csv_file = p
+                    break
+
     df_hist = pd.DataFrame()
-    
-    if csv_file.exists():
+    if csv_file and csv_file.exists():
         try:
             df_hist = pd.read_csv(csv_file)
             col_mapping = {}
@@ -36,7 +43,7 @@ def engineer_features(ticker: str = "AAPL", start_date: str = "2013-01-01") -> p
             if 'Date' in df_hist.columns:
                 df_hist['Date'] = pd.to_datetime(df_hist['Date']).dt.strftime('%Y-%m-%d')
         except Exception as e:
-            print(f"⚠️ Error reading CSV from database for {clean_ticker}: {e}")
+            print(f"⚠️ Error reading CSV for {clean_ticker}: {e}")
 
     last_csv_date = df_hist['Date'].max() if not df_hist.empty and 'Date' in df_hist.columns else start_date
     today_str = datetime.now().strftime("%Y-%m-%d")
