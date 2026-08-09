@@ -25,7 +25,7 @@ from ML.feature_engineering.build_features import engineer_features
 from data_pipeline.news_data.fetcher import fetch_company_news 
 from fake_news_detection.collectors.fetcher import search_fact_check_claims 
 
-app = FastAPI(title="AI Stock Intelligence API - Direct Brokerage Routing", version="1.2.2")
+app = FastAPI(title="AI Stock Intelligence API - Advanced Institutional Routing", version="1.3.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +77,8 @@ class OrderRequest(BaseModel):
     qty: float
     order_type: str = "market" # 'market' or 'limit'
     limit_price: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
 
 def compute_stock_recommendation(rsi: float, regime_id: int, pred_mid: float, lower_bound: float, upper_bound: float):
     score = 0
@@ -115,7 +117,7 @@ def compute_stock_recommendation(rsi: float, regime_id: int, pred_mid: float, lo
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "version": "1.2.2", "broker_routing": "Active"}
+    return {"status": "healthy", "version": "1.3.3", "broker_routing": "Active"}
 
 @app.get("/api/stock/analyze")
 def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
@@ -202,6 +204,50 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/broker/account")
+def get_broker_account():
+    alpaca_key = os.getenv("APCA_API_KEY_ID")
+    alpaca_secret = os.getenv("APCA_API_SECRET_KEY")
+
+    if alpaca_key and alpaca_secret:
+        try:
+            from alpaca.trading.client import TradingClient
+            trading_client = TradingClient(api_key=alpaca_key, secret_key=alpaca_secret, paper=True)
+            account = trading_client.get_account()
+            positions = trading_client.get_all_positions()
+
+            formatted_positions = []
+            for p in positions:
+                formatted_positions.append({
+                    "ticker": p.symbol,
+                    "shares": float(p.qty),
+                    "buyPrice": float(p.avg_entry_price),
+                    "currentPrice": float(p.current_price),
+                    "marketValue": float(p.market_value),
+                    "unrealizedPL": float(p.unrealized_pl),
+                    "unrealizedPLPct": float(p.unrealized_plpc) * 100
+                })
+
+            return {
+                "sync_mode": "live",
+                "portfolio_value": float(account.portfolio_value),
+                "cash": float(account.cash),
+                "buying_power": float(account.buying_power),
+                "positions": formatted_positions
+            }
+        except Exception as e:
+            print(f"⚠️ Live broker sync error: {e}")
+
+    return {
+        "sync_mode": "simulation",
+        "portfolio_value": 105420.50,
+        "cash": 85200.00,
+        "buying_power": 170400.00,
+        "positions": [
+            {"ticker": "AAPL", "shares": 10, "buyPrice": 180.00, "currentPrice": 223.96, "marketValue": 2239.60, "unrealizedPL": 439.60, "unrealizedPLPct": 24.42}
+        ]
+    }
+
 @app.post("/api/broker/order")
 def execute_broker_order(order: OrderRequest):
     try:
@@ -217,57 +263,83 @@ def execute_broker_order(order: OrderRequest):
         alpaca_key = os.getenv("APCA_API_KEY_ID")
         alpaca_secret = os.getenv("APCA_API_SECRET_KEY")
 
-        if alpaca_key and alpaca_secret:
-            print(f"🔥 LIVE ALPACA API DETECTED! Key ID ending in ...{alpaca_key[-4:]}")
-        else:
-            print("⚠️ No Alpaca keys found. Using sandbox broker execution simulator.")
+        if not alpaca_key or not alpaca_secret:
+            raise HTTPException(status_code=400, detail="Alpaca API keys are missing in your .env file.")
+
+        from alpaca.trading.client import TradingClient
+        from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, TakeProfitRequest, StopLossRequest, LimitOrderRequest as AlpacaLimitReq, MarketOrderRequest as AlpacaMarketReq
+        from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
+
+        trading_client = TradingClient(api_key=alpaca_key, secret_key=alpaca_secret, paper=True)
+        alpaca_side = OrderSide.BUY if side == "buy" else OrderSide.SELL
+        
+        is_limit = order.order_type.lower() == "limit" and order.limit_price is not None and order.limit_price > 0
+        has_both_bracket = order.stop_loss is not None and order.take_profit is not None
+
+        if has_both_bracket:
+            # True OCO Bracket Order requires both take_profit and stop_loss
+            tp = TakeProfitRequest(limit_price=order.take_profit)
+            sl = StopLossRequest(stop_price=order.stop_loss)
             
-        order_id = f"BROKER-{random.randint(100000, 999999)}"
+            if is_limit:
+                base_req = AlpacaLimitReq(
+                    symbol=clean_ticker,
+                    qty=order.qty,
+                    side=alpaca_side,
+                    time_in_force=TimeInForce.DAY,
+                    limit_price=order.limit_price,
+                    order_class=OrderClass.BRACKET,
+                    take_profit=tp,
+                    stop_loss=sl
+                )
+            else:
+                base_req = AlpacaMarketReq(
+                    symbol=clean_ticker,
+                    qty=order.qty,
+                    side=alpaca_side,
+                    time_in_force=TimeInForce.DAY,
+                    order_class=OrderClass.BRACKET,
+                    take_profit=tp,
+                    stop_loss=sl
+                )
+            resp = trading_client.submit_order(order_data=base_req)
+        else:
+            # Standard Market or Limit Order (Stop-loss alone can be tracked via app logic or standard submission)
+            if is_limit:
+                req = LimitOrderRequest(
+                    symbol=clean_ticker, 
+                    qty=order.qty, 
+                    side=alpaca_side, 
+                    time_in_force=TimeInForce.DAY, 
+                    limit_price=order.limit_price
+                )
+            else:
+                req = MarketOrderRequest(
+                    symbol=clean_ticker, 
+                    qty=order.qty, 
+                    side=alpaca_side, 
+                    time_in_force=TimeInForce.DAY
+                )
+            resp = trading_client.submit_order(order_data=req)
+
+        order_id = str(resp.id)
         timestamp = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        if broker == "alpaca" and alpaca_key and alpaca_secret:
-            try:
-                from alpaca.trading.client import TradingClient
-                from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
-                from alpaca.trading.enums import OrderSide, TimeInForce
-
-                trading_client = TradingClient(api_key=alpaca_key, secret_key=alpaca_secret, paper=True)
-                alpaca_side = OrderSide.BUY if side == "buy" else OrderSide.SELL
-                
-                if order.order_type.lower() == "limit" and order.limit_price and order.limit_price > 0:
-                    req = LimitOrderRequest(
-                        symbol=clean_ticker, 
-                        qty=order.qty, 
-                        side=alpaca_side, 
-                        time_in_force=TimeInForce.DAY, 
-                        limit_price=order.limit_price
-                    )
-                else:
-                    req = MarketOrderRequest(
-                        symbol=clean_ticker, 
-                        qty=order.qty, 
-                        side=alpaca_side, 
-                        time_in_force=TimeInForce.DAY
-                    )
-                
-                resp = trading_client.submit_order(order_data=req)
-                order_id = str(resp.id)
-            except Exception as alpaca_err:
-                print(f"⚠️ Alpaca live API execution warning: {alpaca_err}. Falling back to direct broker simulator.")
 
         return {
             "status": "success",
-            "message": f"Order successfully routed and executed via {broker.capitalize()} API.",
+            "message": f"Order successfully routed via Alpaca API.",
             "order_details": {
                 "order_id": order_id,
-                "broker": broker.capitalize(),
+                "broker": "Alpaca",
                 "ticker": clean_ticker,
                 "side": side.upper(),
                 "qty": order.qty,
                 "type": order.order_type.upper(),
                 "limit_price": order.limit_price,
+                "stop_loss": order.stop_loss,
+                "take_profit": order.take_profit,
                 "timestamp": timestamp,
-                "execution_status": "FILLED"
+                "execution_status": str(resp.status).split('.')[-1]
             }
         }
     except Exception as e:
@@ -280,30 +352,17 @@ def get_stock_news(ticker: str = "AAPL"):
     clean_ticker = ticker.upper().strip()
     company_name = COMPANY_NAMES.get(clean_ticker, clean_ticker)
     news_api_key = os.getenv("NEWS_API_KEY")
-    
     articles = []
     if news_api_key:
         try:
             articles = fetch_company_news(api_key=news_api_key, query=f"{company_name} stock")
         except Exception:
             pass
-            
     if not articles:
         articles = [
-            {
-                "title": f"{company_name} Announces Strategic Expansion in AI and Cloud Infrastructure",
-                "url": f"https://finance.yahoo.com/quote/{clean_ticker}",
-                "source": "Bloomberg Markets",
-                "published_at": pd.Timestamp.now().strftime("%Y-%m-%d")
-            },
-            {
-                "title": f"Institutional Analysts Maintain Strong Outlook for {clean_ticker} Heading into Q3",
-                "url": f"https://www.reuters.com/markets/companies/{clean_ticker}",
-                "source": "Reuters Financial",
-                "published_at": pd.Timestamp.now().strftime("%Y-%m-%d")
-            }
+            {"title": f"{company_name} Announces Strategic Expansion in AI", "url": f"https://finance.yahoo.com/quote/{clean_ticker}", "source": "Bloomberg", "published_at": pd.Timestamp.now().strftime("%Y-%m-%d")},
+            {"title": f"Institutional Outlook Strong for {clean_ticker}", "url": f"https://www.reuters.com/markets/{clean_ticker}", "source": "Reuters", "published_at": pd.Timestamp.now().strftime("%Y-%m-%d")}
         ]
-
     formatted = []
     for art in articles:
         formatted.append({
@@ -322,20 +381,19 @@ def get_fact_checks(ticker: str = "AAPL"):
         claims = search_fact_check_claims(query=f"{company_name} stock")
     except Exception:
         claims = []
-        
     formatted = []
     if claims:
         for claim in claims[:3]:
             review = claim.get('claimReview', [{}])[0]
             formatted.append({
-                "claim": claim.get("text", "Market sentiment analysis on valuation metrics."),
-                "publisher": review.get("publisher", {}).get("name", "Independent Audit"),
+                "claim": claim.get("text", "Market analysis on valuation."),
+                "publisher": review.get("publisher", {}).get("name", "Audit Desk"),
                 "rating": review.get("textualRating", "Verified")
             })
     else:
         formatted.append({
-            "claim": f"Reports indicate strong earnings resilience across {company_name} core operating sectors.",
-            "publisher": "Financial Verification Desk",
+            "claim": f"Reports show solid operational resilience for {company_name}.",
+            "publisher": "Verification Desk",
             "rating": "Verified"
         })
     return {"ticker": clean_ticker, "claims": formatted}
@@ -352,34 +410,34 @@ async def websocket_orderbook(websocket: WebSocket, ticker: str):
             spread = 0.02
             bid_price = round(base_price - spread / 2, 2)
             ask_price = round(base_price + spread / 2, 2)
-
-            bids = [
-                {"price": bid_price, "size": random.randint(150, 3000)},
-                {"price": round(bid_price - 0.05, 2), "size": random.randint(500, 6000)},
-                {"price": round(bid_price - 0.10, 2), "size": random.randint(1200, 12000)}
-            ]
-            asks = [
-                {"price": ask_price, "size": random.randint(150, 3000)},
-                {"price": round(ask_price + 0.05, 2), "size": random.randint(500, 6000)},
-                {"price": round(ask_price + 0.10, 2), "size": random.randint(1200, 12000)}
-            ]
-
             payload = {
                 "ticker": clean_ticker,
                 "timestamp": pd.Timestamp.now().strftime("%H:%M:%S.%f")[:-3],
-                "level1": {
-                    "bid": bid_price,
-                    "ask": ask_price,
-                    "spread": round(ask_price - bid_price, 2)
-                },
+                "level1": {"bid": bid_price, "ask": ask_price, "spread": round(ask_price - bid_price, 2)},
                 "level2": {
-                    "bids": bids,
-                    "asks": asks
+                    "bids": [{"price": bid_price, "size": random.randint(150, 3000)}],
+                    "asks": [{"price": ask_price, "size": random.randint(150, 3000)}]
                 }
             }
             await websocket.send_json(payload)
             await asyncio.sleep(0.4)
     except WebSocketDisconnect:
         pass
-    except Exception:
+
+@app.websocket("/ws/broker/updates")
+async def websocket_broker_updates(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            await asyncio.sleep(10)
+            mock_update = {
+                "event": "fill",
+                "order_id": f"ORD-{random.randint(10000,99999)}",
+                "symbol": "AAPL",
+                "qty": 10,
+                "filled_avg_price": 223.50,
+                "timestamp": pd.Timestamp.now().strftime("%H:%M:%S")
+            }
+            await websocket.send_json(mock_update)
+    except WebSocketDisconnect:
         pass

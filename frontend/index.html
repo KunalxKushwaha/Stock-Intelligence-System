@@ -15,7 +15,7 @@
       <div class="brand-icon">⚡</div>
       <div>
         <h1>Stock Intelligence System <span class="badge">PRO</span></h1>
-        <p>Direct Brokerage Routing • LSTM + XGBoost • Verified Signals</p>
+        <p>Live Brokerage Sync • Bracket Orders • Real-Time Stream</p>
       </div>
     </div>
 
@@ -25,7 +25,6 @@
         <button onclick="selectTicker('NVDA')">Nvidia (NVDA)</button>
         <button onclick="selectTicker('TSLA')">Tesla (TSLA)</button>
         <button onclick="selectTicker('MSFT')">Microsoft (MSFT)</button>
-        <button onclick="selectTicker('AMZN')">Amazon (AMZN)</button>
       </div>
       
       <form id="search-form" onsubmit="handleSearch(event)">
@@ -35,7 +34,6 @@
           <option value="NVDA">Nvidia Corp. (NVDA)</option>
           <option value="TSLA">Tesla Inc. (TSLA)</option>
           <option value="MSFT">Microsoft Corp. (MSFT)</option>
-          <option value="AMZN">Amazon.com Inc. (AMZN)</option>
         </datalist>
         <button type="submit" class="btn-primary">Search</button>
       </form>
@@ -50,7 +48,7 @@
 
   <div id="loader" class="loader-container">
     <div class="spinner"></div>
-    <p>Computing Market Regimes, Conformal Bounds & Direct Broker Routing...</p>
+    <p>Syncing Live Broker Ledger, Computing HMM Regimes & Conformal Bounds...</p>
   </div>
 
   <main id="dashboard" class="main-container hidden">
@@ -192,14 +190,14 @@
 
   </main>
 
-  <!-- Direct Brokerage Order Execution Modal -->
+  <!-- Direct Brokerage Order Execution Modal (With Bracket Triggers) -->
   <div id="broker-modal" class="modal-overlay hidden">
     <div class="modal-card portfolio-modal-card">
       <div class="modal-header">
         <span class="badge-modal">Direct Brokerage Order Router</span>
         <button onclick="closeBrokerModal()" class="modal-close-btn">&times;</button>
       </div>
-      <p style="font-size: 13px; color: var(--text-muted);">Route live orders instantly via direct API integration to your brokerage account.</p>
+      <p style="font-size: 13px; color: var(--text-muted);">Route live orders instantly via direct API integration with bracket risk controls.</p>
       
       <div class="position-form-container" style="grid-template-columns: 1fr 1fr; margin-top: 10px;">
         <div class="position-form-group">
@@ -236,11 +234,19 @@
           <label class="form-label">Limit Price ($)</label>
           <input type="number" id="broker-limit-input" placeholder="150.00" step="0.01" />
         </div>
+        <div class="position-form-group">
+          <label class="form-label">🛡️ Stop-Loss Price ($)</label>
+          <input type="number" id="broker-sl-input" placeholder="Optional (e.g. 170.00)" step="0.01" />
+        </div>
+        <div class="position-form-group">
+          <label class="form-label">🎯 Take-Profit Price ($)</label>
+          <input type="number" id="broker-tp-input" placeholder="Optional (e.g. 210.00)" step="0.01" />
+        </div>
       </div>
 
       <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 10px;">
         <button onclick="closeBrokerModal()" class="btn-secondary">Cancel</button>
-        <button onclick="submitBrokerOrder()" class="btn-primary" style="background: var(--accent-green);">🚀 Submit Order to Broker</button>
+        <button onclick="submitBrokerOrder()" class="btn-primary" style="background: var(--accent-green);">🚀 Submit Bracket Order</button>
       </div>
 
       <div id="broker-response-box" class="hidden" style="margin-top: 14px; padding: 12px; background: var(--panel-sub); border: 1px solid var(--border-color); border-radius: 8px; font-size: 12px;"></div>
@@ -249,28 +255,22 @@
     </div>
   </div>
 
-  <!-- Portfolio & Watchlist Manager Modal -->
+  <!-- Portfolio & Watchlist Tracker Modal (Synced with Live Broker Ledger) -->
   <div id="portfolio-modal" class="modal-overlay hidden">
     <div class="modal-card portfolio-modal-card">
       <div class="modal-header">
-        <span class="badge-modal">Portfolio & Watchlist Tracker</span>
+        <span class="badge-modal">Portfolio & Live Broker Sync</span>
         <button onclick="closePortfolioModal()" class="modal-close-btn">&times;</button>
       </div>
       <div class="portfolio-tabs">
         <button class="port-tab-btn active" onclick="switchPortfolioTab('watchlist', this)">⭐ Custom Watchlist</button>
-        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Portfolio Positions</button>
+        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Live Broker Positions</button>
       </div>
       <div id="tab-watchlist" class="port-tab-content"><div id="watchlist-items-container" class="port-list-container"></div></div>
       <div id="tab-positions" class="port-tab-content hidden">
-        <div class="position-form-container">
-          <div class="position-form-group"><label class="form-label">Select Stock</label><select id="pos-ticker-select"></select></div>
-          <div class="position-form-group"><label class="form-label">No. of Shares</label><input type="number" id="pos-shares-input" value="10" min="1" /></div>
-          <div class="position-form-group"><label class="form-label">Buy Price ($)</label><input type="number" id="pos-price-input" value="150" step="0.01" /></div>
-          <div class="position-form-group btn-group-align"><button onclick="addPortfolioPosition()" class="btn-primary">Add Position</button></div>
-        </div>
         <div class="port-summary-bar">
-          <div>Total Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
-          <div>Total Gain/Loss: <strong id="port-total-pl">$0.00</strong></div>
+          <div>Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
+          <div>Buying Power: <strong id="port-cash-val">$0.00</strong></div>
         </div>
         <div id="positions-items-container" class="port-list-container"></div>
       </div>

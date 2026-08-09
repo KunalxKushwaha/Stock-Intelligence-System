@@ -8,6 +8,7 @@ let newsDisplayLimit = 5;
 let activeTicker = 'AAPL';
 let activeCurrentPrice = 0.0;
 let orderBookSocket = null;
+let brokerStatusSocket = null;
 
 const COMPANY_NAME_MAP = {
   "AAPL": "Apple Inc.", "NVDA": "Nvidia Corp.", "TSLA": "Tesla Inc.",
@@ -38,7 +39,7 @@ function toggleTheme() {
 }
 
 // ==========================================
-// Broker Modal & Execution Logic
+// Broker Modal & Bracket Order Logic
 // ==========================================
 function openBrokerModal() {
   document.getElementById('broker-ticker-input').value = activeTicker;
@@ -66,7 +67,18 @@ async function submitBrokerOrder() {
   const side = document.getElementById('broker-side-select').value;
   const qty = parseFloat(document.getElementById('broker-qty-input').value);
   const order_type = document.getElementById('broker-type-select').value;
-  const limit_price = order_type === 'limit' ? parseFloat(document.getElementById('broker-limit-input').value) : null;
+  
+  let limit_price = null;
+  if (order_type === 'limit') {
+    limit_price = parseFloat(document.getElementById('broker-limit-input').value);
+    if (!limit_price || limit_price <= 0) {
+      alert("Please enter a valid limit price for your limit order.");
+      return;
+    }
+  }
+
+  const stop_loss = parseFloat(document.getElementById('broker-sl-input').value) || null;
+  const take_profit = parseFloat(document.getElementById('broker-tp-input').value) || null;
 
   if (!qty || qty <= 0) {
     alert("Please enter a valid order quantity.");
@@ -74,14 +86,14 @@ async function submitBrokerOrder() {
   }
 
   const respBox = document.getElementById('broker-response-box');
-  respBox.innerHTML = "⏳ Routing order directly to broker API gateway...";
+  respBox.innerHTML = "⏳ Routing order securely to broker API gateway...";
   respBox.classList.remove('hidden');
 
   try {
     const response = await fetch('http://localhost:8000/api/broker/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ broker, ticker, side, qty, order_type, limit_price })
+      body: JSON.stringify({ broker, ticker, side, qty, order_type, limit_price, stop_loss, take_profit })
     });
 
     const result = await response.json();
@@ -92,150 +104,26 @@ async function submitBrokerOrder() {
         • Broker: <strong>${details.broker}</strong><br>
         • Order ID: <code>${details.order_id}</code><br>
         • Action: <strong>${details.side} ${details.qty}x ${details.ticker}</strong> (${details.type})<br>
+        • Limit Price: <strong>${details.limit_price ? '$' + details.limit_price : 'N/A (Market)'}</strong><br>
         • Status: <strong style="color: var(--accent-green);">${details.execution_status}</strong> at ${details.timestamp}
       `;
     } else {
       let errorMsg = result.detail;
-      if (typeof errorMsg === 'object') {
-        errorMsg = JSON.stringify(errorMsg, null, 2);
-      }
-      respBox.innerHTML = `<strong style="color: var(--accent-red);">❌ Execution Failed:</strong> <pre style="margin-top: 4px; white-space: pre-wrap;">${errorMsg || 'Unknown broker error'}</pre>`;
+      if (typeof errorMsg === 'object') errorMsg = JSON.stringify(errorMsg, null, 2);
+      respBox.innerHTML = `<strong style="color: var(--accent-red);">❌ Execution Failed:</strong> <pre style="margin-top: 4px; white-space: pre-wrap;">${errorMsg}</pre>`;
     }
   } catch (err) {
     console.error("Broker order routing error:", err);
-    respBox.innerHTML = `<strong style="color: var(--accent-red);">❌ Network Error:</strong> Could not connect to FastAPI broker gateway.`;
+    respBox.innerHTML = `<strong style="color: var(--accent-red);">❌ Network Error:</strong> Could not connect to FastAPI gateway.`;
   }
 }
 
 // ==========================================
-// Technical Drawing Tools Logic
-// ==========================================
-function toggleDrawingTool(toolName, btnElem) {
-  document.querySelectorAll('.draw-btn').forEach(b => b.classList.remove('active'));
-  if (btnElem) btnElem.classList.add('active');
-
-  const statusMsg = document.getElementById('drawing-status-msg');
-  if (toolName === 'none') {
-    statusMsg.classList.add('hidden');
-    const filteredData = filterDataByTimeframe(rawHistoricalData, activeTimeframe);
-    renderChart(activeTicker, filteredData);
-  } else if (toolName === 'fibonacci') {
-    statusMsg.textContent = "📐 Fibonacci Retracement: Auto-projecting key 0%, 38.2%, 50%, 61.8% levels.";
-    statusMsg.classList.remove('hidden');
-    applyFibonacciRetracement();
-  } else if (toolName === 'support') {
-    statusMsg.textContent = "🛡️ Support/Resistance: Auto-overlaying pivot and swing high/low bands.";
-    statusMsg.classList.remove('hidden');
-    applySupportResistance();
-  }
-}
-
-function clearDrawings() {
-  toggleDrawingTool('none', document.querySelector('.draw-btn'));
-}
-
-function applyFibonacciRetracement() {
-  if (!rawHistoricalData || rawHistoricalData.length === 0) return;
-  const prices = rawHistoricalData.map(d => d.Close);
-  const maxPrice = Math.max(...prices);
-  const minPrice = Math.min(...prices);
-  const diff = maxPrice - minPrice;
-
-  const fibLevels = [
-    { label: 'Fib 0.0% (High)', price: maxPrice, color: '#ef4444' },
-    { label: 'Fib 23.6%', price: maxPrice - diff * 0.236, color: '#f59e0b' },
-    { label: 'Fib 38.2%', price: maxPrice - diff * 0.382, color: '#10b981' },
-    { label: 'Fib 50.0% (Mid)', price: maxPrice - diff * 0.500, color: '#2563eb' },
-    { label: 'Fib 61.8% (Golden)', price: maxPrice - diff * 0.618, color: '#8b5cf6' },
-    { label: 'Fib 100.0% (Low)', price: minPrice, color: '#ef4444' }
-  ];
-
-  const filteredData = filterDataByTimeframe(rawHistoricalData, activeTimeframe);
-  renderChartWithAnnotations(activeTicker, filteredData, fibLevels);
-}
-
-function applySupportResistance() {
-  if (!rawHistoricalData || rawHistoricalData.length === 0) return;
-  const prices = rawHistoricalData.map(d => d.Close);
-  const maxPrice = Math.max(...prices);
-  const minPrice = Math.min(...prices);
-  const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-
-  const srLevels = [
-    { label: 'Resistance (R2)', price: maxPrice * 0.98, color: '#ef4444' },
-    { label: 'Resistance (R1)', price: maxPrice * 0.94, color: '#f59e0b' },
-    { label: 'Pivot / Mean', price: avgPrice, color: '#2563eb' },
-    { label: 'Support (S1)', price: minPrice * 1.04, color: '#10b981' },
-    { label: 'Support (S2)', price: minPrice * 1.01, color: '#059669' }
-  ];
-
-  const filteredData = filterDataByTimeframe(rawHistoricalData, activeTimeframe);
-  renderChartWithAnnotations(activeTicker, filteredData, srLevels);
-}
-
-function renderChartWithAnnotations(ticker, historicalData, annotationLevels) {
-  const cName = COMPANY_NAME_MAP[ticker] || ticker;
-  document.getElementById('chart-title').textContent = `${cName} (${ticker}) - Technical Overlay`;
-  const ctx = document.getElementById('stockChart').getContext('2d');
-  
-  const labels = historicalData.map(d => {
-    const rawDate = d.Date || '';
-    return rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
-  });
-  const prices = historicalData.map(d => d.Close);
-
-  if (stockChart) stockChart.destroy();
-
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const gridColor = isDark ? '#1e293b' : '#e2e8f0';
-
-  const datasets = [{
-    label: 'Closing Price',
-    data: prices,
-    borderColor: '#2563eb',
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
-    borderWidth: 2.5,
-    fill: true,
-    tension: 0.2,
-    pointRadius: 2
-  }];
-
-  annotationLevels.forEach(lvl => {
-    datasets.push({
-      label: lvl.label,
-      data: new Array(labels.length).fill(lvl.price),
-      borderColor: lvl.color,
-      borderWidth: 1.5,
-      borderDash: [4, 4],
-      pointRadius: 0,
-      fill: false
-    });
-  });
-
-  stockChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { 
-        legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } 
-      },
-      scales: {
-        x: { grid: { color: gridColor }, ticks: { color: '#64748b', maxTicksLimit: 8 } },
-        y: { grid: { color: gridColor }, ticks: { color: '#64748b' } }
-      }
-    }
-  });
-}
-
-// ==========================================
-// Portfolio & Watchlist Tracker Management
+// Portfolio & Live Broker Ledger Sync
 // ==========================================
 function openPortfolioModal() {
-  populatePositionTickerDropdown();
   renderWatchlistTab();
-  renderPositionsTab();
+  renderLivePositionsTab();
   document.getElementById('portfolio-modal').classList.remove('hidden');
 }
 
@@ -255,16 +143,8 @@ function switchPortfolioTab(tabName, btnElem) {
     renderWatchlistTab();
   } else {
     document.getElementById('tab-positions').classList.remove('hidden');
-    renderPositionsTab();
+    renderLivePositionsTab();
   }
-}
-
-function populatePositionTickerDropdown() {
-  const selectElem = document.getElementById('pos-ticker-select');
-  if (!selectElem) return;
-  selectElem.innerHTML = Object.keys(COMPANY_NAME_MAP).map(sym => `
-    <option value="${sym}">${sym} - ${COMPANY_NAME_MAP[sym]}</option>
-  `).join('');
 }
 
 function getStoredWatchlist() {
@@ -304,12 +184,10 @@ function updateWatchlistStarState() {
 function renderWatchlistTab() {
   const container = document.getElementById('watchlist-items-container');
   const watchlist = getStoredWatchlist();
-
   if (watchlist.length === 0) {
     container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">Your watchlist is empty.</p>';
     return;
   }
-
   container.innerHTML = watchlist.map(ticker => {
     const cName = COMPANY_NAME_MAP[ticker] || ticker;
     return `
@@ -332,85 +210,56 @@ function removeFromWatchlist(ticker) {
   updateWatchlistStarState();
 }
 
-function getStoredPositions() {
-  try {
-    return JSON.parse(localStorage.getItem('user_positions')) || [
-      { ticker: 'AAPL', shares: 10, buyPrice: 180.00 }
-    ];
-  } catch (e) {
-    return [{ ticker: 'AAPL', shares: 10, buyPrice: 180.00 }];
-  }
-}
-
-function addPortfolioPosition() {
-  const ticker = document.getElementById('pos-ticker-select').value;
-  const shares = parseFloat(document.getElementById('pos-shares-input').value);
-  const buyPrice = parseFloat(document.getElementById('pos-price-input').value);
-
-  if (!shares || !buyPrice || shares <= 0 || buyPrice <= 0) {
-    alert("Please enter valid positive numbers.");
-    return;
-  }
-
-  const positions = getStoredPositions();
-  positions.push({ ticker, shares, buyPrice });
-  localStorage.setItem('user_positions', JSON.stringify(positions));
-  renderPositionsTab();
-}
-
-function renderPositionsTab() {
+async function renderLivePositionsTab() {
   const container = document.getElementById('positions-items-container');
-  const positions = getStoredPositions();
+  container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">Syncing live ledger from broker API...</p>';
 
-  if (positions.length === 0) {
-    container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">No positions tracked yet.</p>';
-    document.getElementById('port-total-val').textContent = '$0.00';
-    document.getElementById('port-total-pl').textContent = '$0.00';
-    return;
-  }
+  try {
+    const res = await fetch('http://localhost:8000/api/broker/account');
+    const data = await res.json();
 
-  let totalValue = 0;
-  let totalCost = 0;
+    document.getElementById('port-total-val').textContent = `$${data.portfolio_value.toFixed(2)}`;
+    document.getElementById('port-cash-val').textContent = `$${data.buying_power.toFixed(2)}`;
 
-  container.innerHTML = positions.map((pos, idx) => {
-    const currPrice = (pos.ticker === activeTicker && activeCurrentPrice > 0) ? activeCurrentPrice : pos.buyPrice * 1.05;
-    const posVal = currPrice * pos.shares;
-    const posCost = pos.buyPrice * pos.shares;
-    const pl = posVal - posCost;
-    const plPct = (pl / posCost) * 100;
+    const positions = data.positions || [];
+    if (positions.length === 0) {
+      container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">No open positions in broker account.</p>';
+      return;
+    }
 
-    totalValue += posVal;
-    totalCost += posCost;
-
-    const plColor = pl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-
-    return `
-      <div class="port-item-row">
-        <div><strong>${pos.ticker}</strong> <div style="font-size: 11px; color: var(--text-muted);">Qty: <strong>${pos.shares}</strong> | Buy: <strong>$${pos.buyPrice.toFixed(2)}</strong></div></div>
-        <div style="text-align: right;">
-          <strong style="color: ${plColor};">${pl >= 0 ? '+' : ''}$${pl.toFixed(2)} (${plPct.toFixed(2)}%)</strong>
-          <div><button onclick="removePosition(${idx})" style="background:none; border:none; color: var(--text-muted); font-size: 10px; cursor: pointer; text-decoration: underline;">Remove</button></div>
+    container.innerHTML = positions.map(pos => {
+      const plColor = pos.unrealizedPL >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+      return `
+        <div class="port-item-row">
+          <div><strong>${pos.ticker}</strong> <div style="font-size: 11px; color: var(--text-muted);">Qty: <strong>${pos.shares}</strong> | Avg Buy: <strong>$${pos.buyPrice.toFixed(2)}</strong></div></div>
+          <div style="text-align: right;">
+            <strong style="color: ${plColor};">${pos.unrealizedPL >= 0 ? '+' : ''}$${pos.unrealizedPL.toFixed(2)} (${pos.unrealizedPLPct.toFixed(2)}%)</strong>
+            <div style="font-size: 11px; color: var(--text-muted);">Val: $${pos.marketValue.toFixed(2)}</div>
+          </div>
         </div>
-      </div>
-    `;
-  }).join('');
-
-  const totalPL = totalValue - totalCost;
-  document.getElementById('port-total-val').textContent = `$${totalValue.toFixed(2)}`;
-  const totalPLElem = document.getElementById('port-total-pl');
-  totalPLElem.textContent = `${totalPL >= 0 ? '+' : ''}$${totalPL.toFixed(2)}`;
-  totalPLElem.style.color = totalPL >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-}
-
-function removePosition(idx) {
-  let positions = getStoredPositions();
-  positions.splice(idx, 1);
-  localStorage.setItem('user_positions', JSON.stringify(positions));
-  renderPositionsTab();
+      `;
+    }).join('');
+  } catch (err) {
+    console.error("Portfolio sync error:", err);
+    container.innerHTML = '<p style="font-size: 12px; color: var(--accent-red); padding: 10px;">Failed to sync with broker ledger.</p>';
+  }
 }
 
 // ==========================================
-// Supported Stocks Modal Management
+// Order Status WebSocket Stream Integration
+// ==========================================
+function connectBrokerStatusStream() {
+  if (brokerStatusSocket) brokerStatusSocket.close();
+  brokerStatusSocket = new WebSocket('ws://localhost:8000/ws/broker/updates');
+
+  brokerStatusSocket.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    console.log("⚡ Broker Order Status Update:", data);
+  };
+}
+
+// ==========================================
+// Supported Stocks Modal & Chart Logic
 // ==========================================
 function openStocksModal() {
   const directoryContainer = document.getElementById('stocks-directory-list');
@@ -423,15 +272,12 @@ function openStocksModal() {
   document.getElementById('stocks-modal').classList.remove('hidden');
 }
 
-function closeStocksModal() {
-  document.getElementById('stocks-modal').classList.add('hidden');
-}
+function closeStocksModal() { document.getElementById('stocks-modal').classList.add('hidden'); }
 
 function filterStockDirectory() {
   const query = document.getElementById('modal-stock-filter').value.toLowerCase();
   const directoryContainer = document.getElementById('stocks-directory-list');
   const filtered = Object.entries(COMPANY_NAME_MAP).filter(([symbol, name]) => symbol.toLowerCase().includes(query) || name.toLowerCase().includes(query));
-
   directoryContainer.innerHTML = filtered.map(([symbol, name]) => `
     <div class="stock-dir-item" onclick="selectStockFromDirectory('${symbol}')">
       <span class="stock-dir-symbol">${symbol}</span>
@@ -445,32 +291,19 @@ function selectStockFromDirectory(symbol) {
   fetchIntelligence(symbol);
 }
 
-// ==========================================
-// Sub-Second Order Book WebSocket Connection
-// ==========================================
 function connectOrderBookStream(ticker) {
   if (orderBookSocket) orderBookSocket.close();
   orderBookSocket = new WebSocket(`ws://localhost:8000/ws/orderbook/${ticker}`);
-
   orderBookSocket.onmessage = function(event) {
     const data = JSON.parse(event.data);
     document.getElementById('ob-bid').textContent = `$${data.level1.bid.toFixed(2)}`;
     document.getElementById('ob-ask').textContent = `$${data.level1.ask.toFixed(2)}`;
     document.getElementById('ob-spread').textContent = `$${data.level1.spread.toFixed(2)}`;
-
-    document.getElementById('ob-bids-list').innerHTML = data.level2.bids.map(b => `
-      <div class="ob-row"><span class="text-gain">$${b.price.toFixed(2)}</span><span>${b.size}</span></div>
-    `).join('');
-
-    document.getElementById('ob-asks-list').innerHTML = data.level2.asks.map(a => `
-      <div class="ob-row"><span class="text-risk">$${a.price.toFixed(2)}</span><span>${a.size}</span></div>
-    `).join('');
+    document.getElementById('ob-bids-list').innerHTML = data.level2.bids.map(b => `<div class="ob-row"><span class="text-gain">$${b.price.toFixed(2)}</span><span>${b.size}</span></div>`).join('');
+    document.getElementById('ob-asks-list').innerHTML = data.level2.asks.map(a => `<div class="ob-row"><span class="text-risk">$${a.price.toFixed(2)}</span><span>${a.size}</span></div>`).join('');
   };
 }
 
-// ==========================================
-// Timeframe & Chart Logic
-// ==========================================
 function setTimeframe(tf, btnElement) {
   activeTimeframe = tf;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
@@ -496,7 +329,6 @@ function renderChart(ticker, historicalData) {
   const cName = COMPANY_NAME_MAP[ticker] || ticker;
   document.getElementById('chart-title').textContent = `${cName} (${ticker}) Trajectory`;
   const ctx = document.getElementById('stockChart').getContext('2d');
-  
   const labels = historicalData.map(d => (d.Date || '').split('T')[0]);
   const prices = historicalData.map(d => d.Close);
 
@@ -506,10 +338,7 @@ function renderChart(ticker, historicalData) {
 
   stockChart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{ label: 'Closing Price', data: prices, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', borderWidth: 2.5, fill: true, tension: 0.2, pointRadius: 2 }]
-    },
+    data: { labels: labels, datasets: [{ label: 'Closing Price', data: prices, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', borderWidth: 2.5, fill: true, tension: 0.2, pointRadius: 2 }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -584,7 +413,6 @@ async function fetchIntelligence(tickerInputVal) {
     connectOrderBookStream(activeTicker);
 
     loader.classList.add('hidden');
-    dashboard.classList.add('hidden'); // Fixed: should be dashboard.classList.remove('hidden')
     dashboard.classList.remove('hidden');
   } catch (err) {
     console.error("API error:", err);
@@ -703,4 +531,7 @@ function selectTicker(symbol) {
   fetchIntelligence(symbol);
 }
 
-window.addEventListener('DOMContentLoaded', () => { fetchIntelligence('AAPL'); });
+window.addEventListener('DOMContentLoaded', () => { 
+  fetchIntelligence('AAPL'); 
+  connectBrokerStatusStream();
+});
