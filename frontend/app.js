@@ -14,7 +14,21 @@ const COMPANY_NAME_MAP = {
   "AAPL": "Apple Inc.", "NVDA": "Nvidia Corp.", "TSLA": "Tesla Inc.",
   "MSFT": "Microsoft Corp.", "AMZN": "Amazon.com Inc.", "GOOGL": "Alphabet / Google",
   "META": "Meta / Facebook", "NFLX": "Netflix Inc.", "AMD": "Advanced Micro Devices",
-  "AVGO": "Broadcom Inc.", "JPM": "JPMorgan Chase", "DIS": "Walt Disney Co."
+  "AVGO": "Broadcom Inc.", "JPM": "JPMorgan Chase", "DIS": "Walt Disney Co.",
+  "INTC": "Intel Corporation", "QCOM": "Qualcomm Inc.", "PYPL": "PayPal Holdings",
+  "ADBE": "Adobe Inc.", "CSCO": "Cisco Systems", "PEP": "PepsiCo Inc.",
+  "KO": "Coca-Cola Co.", "PFE": "Pfizer Inc.", "NKE": "NIKE Inc.",
+  "WMT": "Walmart Inc.", "JNJ": "Johnson & Johnson", "V": "Visa Inc.",
+  "MA": "Mastercard Inc.", "BAC": "Bank of America", "XOM": "Exxon Mobil Corp.",
+  "CVX": "Chevron Corp.", "HD": "Home Depot Inc.", "UNH": "UnitedHealth Group",
+  "ABBV": "AbbVie Inc.", "MRK": "Merck & Co.", "COST": "Costco Wholesale",
+  "MCD": "McDonald's Corp.", "TMO": "Thermo Fisher Scientific", "LIN": "Linde plc",
+  "ACN": "Accenture plc", "LLY": "Eli Lilly & Co.", "IBM": "International Business Machines",
+  "ORCL": "Oracle Corp.", "CRM": "Salesforce Inc.", "TXN": "Texas Instruments", 
+  "NEE": "NextEra Energy", "PM": "Philip Morris International", "RTX": "RTX Corporation", 
+  "HON": "Honeywell International", "UNP": "Union Pacific Corp.", "LOW": "Lowe's Companies", 
+  "SPY": "SPDR S&P 500 ETF Trust", "BA": "Boeing Company", "CAT": "Caterpillar Inc.", 
+  "GS": "Goldman Sachs Group", "IBM": "IBM Corp.", "NFLX": "Netflix Inc."
 };
 
 const VERIFIED_FINANCIAL_SOURCES = [

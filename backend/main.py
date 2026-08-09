@@ -25,7 +25,7 @@ from ML.feature_engineering.build_features import engineer_features
 from data_pipeline.news_data.fetcher import fetch_company_news 
 from fake_news_detection.collectors.fetcher import search_fact_check_claims 
 
-app = FastAPI(title="AI Stock Intelligence API - Advanced Institutional Routing", version="1.3.3")
+app = FastAPI(title="AI Stock Intelligence API - Advanced Institutional Routing", version="1.3.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,14 +60,28 @@ COMPANY_NAMES = {
     "AAPL": "Apple Inc.", "NVDA": "Nvidia Corp.", "TSLA": "Tesla Inc.",
     "MSFT": "Microsoft Corp.", "AMZN": "Amazon.com Inc.", "GOOGL": "Alphabet / Google",
     "META": "Meta / Facebook", "NFLX": "Netflix Inc.", "AMD": "Advanced Micro Devices",
-    "AVGO": "Broadcom Inc.", "JPM": "JPMorgan Chase", "DIS": "Walt Disney Co."
+    "AVGO": "Broadcom Inc.", "JPM": "JPMorgan Chase", "DIS": "Walt Disney Co.",
+    "INTC": "Intel Corporation", "QCOM": "Qualcomm Inc.", "PYPL": "PayPal Holdings",
+    "ADBE": "Adobe Inc.", "CSCO": "Cisco Systems", "PEP": "PepsiCo Inc.",
+    "KO": "Coca-Cola Co.", "PFE": "Pfizer Inc.", "NKE": "NIKE Inc.",
+    "WMT": "Walmart Inc.", "JNJ": "Johnson & Johnson", "V": "Visa Inc.",
+    "MA": "Mastercard Inc.", "BAC": "Bank of America", "XOM": "Exxon Mobil Corp.",
+    "CVX": "Chevron Corp.", "HD": "Home Depot Inc.", "UNH": "UnitedHealth Group",
+    "ABBV": "AbbVie Inc.", "MRK": "Merck & Co.", "COST": "Costco Wholesale",
+    "MCD": "McDonald's Corp.", "TMO": "Thermo Fisher Scientific", "LIN": "Linde plc",
+    "ACN": "Accenture plc", "LLY": "Eli Lilly & Co.", "IBM": "International Business Machines",
+    "ORCL": "Oracle Corp.", "CRM": "Salesforce Inc.", "AMD": "Advanced Micro Devices",
+    "TXN": "Texas Instruments", "NEE": "NextEra Energy", "PM": "Philip Morris International",
+    "RTX": "RTX Corporation", "HON": "Honeywell International", "UNP": "Union Pacific Corp.",
+    "QCOM": "Qualcomm Inc.", "LOW": "Lowe's Companies", "SPY": "SPDR S&P 500 ETF Trust"
 }
 
 SECTOR_PEERS = {
     "AAPL": ["MSFT", "NVDA", "GOOGL", "AMZN"],
     "NVDA": ["AAPL", "AMD", "MSFT", "AVGO"],
     "TSLA": ["AMZN", "AAPL", "NVDA", "MSFT"],
-    "MSFT": ["AAPL", "NVDA", "AMZN", "GOOGL"]
+    "MSFT": ["AAPL", "NVDA", "AMZN", "GOOGL"],
+    "AMZN": ["AAPL", "MSFT", "GOOGL", "WMT"]
 }
 
 class OrderRequest(BaseModel):
@@ -173,7 +187,7 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
         pred_price_upper = current_price * (1 + pred_upper)
 
         rec_data = compute_stock_recommendation(rsi_val, regime, pred_mid, pred_lower, pred_upper)
-        peers = SECTOR_PEERS.get(clean_ticker, ["MSFT", "NVDA", "GOOGL"])
+        peers = SECTOR_PEERS.get(clean_ticker, ["MSFT", "NVDA", "GOOGL", "AMZN"])
         company_name = COMPANY_NAMES.get(clean_ticker, clean_ticker)
         chart_data = df.tail(90)[['Date', 'Close', 'BB_Upper', 'BB_Lower', 'RSI_14']].to_dict(orient='records')
 
@@ -277,7 +291,6 @@ def execute_broker_order(order: OrderRequest):
         has_both_bracket = order.stop_loss is not None and order.take_profit is not None
 
         if has_both_bracket:
-            # True OCO Bracket Order requires both take_profit and stop_loss
             tp = TakeProfitRequest(limit_price=order.take_profit)
             sl = StopLossRequest(stop_price=order.stop_loss)
             
@@ -304,7 +317,6 @@ def execute_broker_order(order: OrderRequest):
                 )
             resp = trading_client.submit_order(order_data=base_req)
         else:
-            # Standard Market or Limit Order (Stop-loss alone can be tracked via app logic or standard submission)
             if is_limit:
                 req = LimitOrderRequest(
                     symbol=clean_ticker, 
