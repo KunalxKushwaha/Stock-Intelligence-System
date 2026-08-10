@@ -10,25 +10,29 @@ let activeCurrentPrice = 0.0;
 let orderBookSocket = null;
 let brokerStatusSocket = null;
 
-const COMPANY_NAME_MAP = {
-  "AAPL": "Apple Inc.", "NVDA": "Nvidia Corp.", "TSLA": "Tesla Inc.",
-  "MSFT": "Microsoft Corp.", "AMZN": "Amazon.com Inc.", "GOOGL": "Alphabet / Google",
-  "META": "Meta / Facebook", "NFLX": "Netflix Inc.", "AMD": "Advanced Micro Devices",
-  "AVGO": "Broadcom Inc.", "JPM": "JPMorgan Chase", "DIS": "Walt Disney Co.",
-  "INTC": "Intel Corporation", "QCOM": "Qualcomm Inc.", "PYPL": "PayPal Holdings",
-  "ADBE": "Adobe Inc.", "CSCO": "Cisco Systems", "PEP": "PepsiCo Inc.",
-  "KO": "Coca-Cola Co.", "PFE": "Pfizer Inc.", "NKE": "NIKE Inc.",
-  "WMT": "Walmart Inc.", "JNJ": "Johnson & Johnson", "V": "Visa Inc.",
-  "MA": "Mastercard Inc.", "BAC": "Bank of America", "XOM": "Exxon Mobil Corp.",
-  "CVX": "Chevron Corp.", "HD": "Home Depot Inc.", "UNH": "UnitedHealth Group",
-  "ABBV": "AbbVie Inc.", "MRK": "Merck & Co.", "COST": "Costco Wholesale",
-  "MCD": "McDonald's Corp.", "TMO": "Thermo Fisher Scientific", "LIN": "Linde plc",
-  "ACN": "Accenture plc", "LLY": "Eli Lilly & Co.", "IBM": "International Business Machines",
-  "ORCL": "Oracle Corp.", "CRM": "Salesforce Inc.", "TXN": "Texas Instruments", 
-  "NEE": "NextEra Energy", "PM": "Philip Morris International", "RTX": "RTX Corporation", 
-  "HON": "Honeywell International", "UNP": "Union Pacific Corp.", "LOW": "Lowe's Companies", 
-  "SPY": "SPDR S&P 500 ETF Trust", "BA": "Boeing Company", "CAT": "Caterpillar Inc.", 
-  "GS": "Goldman Sachs Group", "NFLX": "Netflix Inc."
+const ASSET_DIRECTORY = {
+  "AAPL": { name: "Apple Inc.", class: "Equities", base: 223.96 },
+  "NVDA": { name: "Nvidia Corp.", class: "Equities", base: 128.50 },
+  "TSLA": { name: "Tesla Inc.", class: "Equities", base: 242.10 },
+  "MSFT": { name: "Microsoft Corp.", class: "Equities", base: 425.00 },
+  "AMZN": { name: "Amazon.com Inc.", class: "Equities", base: 185.20 },
+  "GOOGL": { name: "Alphabet / Google", class: "Equities", base: 175.40 },
+  "META": { name: "Meta / Facebook", class: "Equities", base: 510.00 },
+  "NFLX": { name: "Netflix Inc.", class: "Equities", base: 680.00 },
+  "AMD": { name: "Advanced Micro Devices", class: "Equities", base: 145.30 },
+  "JPM": { name: "JPMorgan Chase", class: "Equities", base: 215.00 },
+  "BTCUSD": { name: "Bitcoin / USD", class: "Crypto", base: 65420.00 },
+  "ETHUSD": { name: "Ethereum / USD", class: "Crypto", base: 3450.00 },
+  "SOLUSD": { name: "Solana / USD", class: "Crypto", base: 155.00 },
+  "EURUSD": { name: "Euro / US Dollar", class: "Forex", base: 1.08 },
+  "GBPUSD": { name: "British Pound / US Dollar", class: "Forex", base: 1.29 },
+  "USDJPY": { name: "US Dollar / Japanese Yen", class: "Forex", base: 147.50 },
+  "GC=F": { name: "Gold Futures", class: "Commodities", base: 2450.00 },
+  "CL=F": { name: "Crude Oil WTI Futures", class: "Commodities", base: 78.50 },
+  "SI=F": { name: "Silver Futures", class: "Commodities", base: 28.50 },
+  "SPY": { name: "S&P 500 ETF Trust", class: "Derivatives", base: 545.00 },
+  "QQQ": { name: "Invesco QQQ Trust (Nasdaq)", class: "Derivatives", base: 465.00 },
+  "VIX": { name: "CBOE Volatility Index", class: "Derivatives", base: 16.50 }
 };
 
 const VERIFIED_FINANCIAL_SOURCES = [
@@ -100,7 +104,7 @@ async function submitBrokerOrder() {
   }
 
   const respBox = document.getElementById('broker-response-box');
-  respBox.innerHTML = "⏳ Routing order securely to broker API gateway...";
+  respBox.innerHTML = "⏳ Routing multi-asset order securely to broker gateway...";
   respBox.classList.remove('hidden');
 
   try {
@@ -114,7 +118,7 @@ async function submitBrokerOrder() {
     if (response.ok) {
       const details = result.order_details;
       respBox.innerHTML = `
-        <strong style="color: var(--accent-green);">✅ Order Executed Successfully!</strong><br>
+        <strong style="color: var(--accent-green);">✅ Multi-Asset Order Executed!</strong><br>
         • Broker: <strong>${details.broker}</strong><br>
         • Order ID: <code>${details.order_id}</code><br>
         • Action: <strong>${details.side} ${details.qty}x ${details.ticker}</strong> (${details.type})<br>
@@ -163,9 +167,9 @@ function switchPortfolioTab(tabName, btnElem) {
 
 function getStoredWatchlist() {
   try {
-    return JSON.parse(localStorage.getItem('user_watchlist')) || ['AAPL', 'NVDA', 'MSFT'];
+    return JSON.parse(localStorage.getItem('user_watchlist')) || ['AAPL', 'BTCUSD', 'EURUSD', 'GC=F'];
   } catch (e) {
-    return ['AAPL', 'NVDA', 'MSFT'];
+    return ['AAPL', 'BTCUSD', 'EURUSD', 'GC=F'];
   }
 }
 
@@ -203,10 +207,10 @@ function renderWatchlistTab() {
     return;
   }
   container.innerHTML = watchlist.map(ticker => {
-    const cName = COMPANY_NAME_MAP[ticker] || ticker;
+    const item = ASSET_DIRECTORY[ticker] || { name: ticker, class: "Asset" };
     return `
       <div class="port-item-row">
-        <div><strong>${ticker}</strong> <span style="font-size: 11px; color: var(--text-muted);">(${cName})</span></div>
+        <div><strong>${ticker}</strong> <span style="font-size: 11px; color: var(--text-muted);">(${item.name} - ${item.class})</span></div>
         <div style="display: flex; gap: 8px;">
           <button onclick="selectStockFromDirectory('${ticker}'); closePortfolioModal();" class="btn-primary" style="padding: 4px 10px; font-size: 11px;">View</button>
           <button onclick="removeFromWatchlist('${ticker}')" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; color: var(--accent-red);">Remove</button>
@@ -226,7 +230,7 @@ function removeFromWatchlist(ticker) {
 
 async function renderLivePositionsTab() {
   const container = document.getElementById('positions-items-container');
-  container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">Syncing live ledger from broker API...</p>';
+  container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">Syncing multi-asset ledger from broker API...</p>';
 
   try {
     const res = await fetch('http://localhost:8000/api/broker/account');
@@ -245,7 +249,7 @@ async function renderLivePositionsTab() {
       const plColor = pos.unrealizedPL >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
       return `
         <div class="port-item-row">
-          <div><strong>${pos.ticker}</strong> <div style="font-size: 11px; color: var(--text-muted);">Qty: <strong>${pos.shares}</strong> | Avg Buy: <strong>$${pos.buyPrice.toFixed(2)}</strong></div></div>
+          <div><strong>${pos.ticker}</strong> <div style="font-size: 11px; color: var(--text-muted);">Units: <strong>${pos.shares}</strong> | Avg Buy: <strong>$${pos.buyPrice.toFixed(2)}</strong></div></div>
           <div style="text-align: right;">
             <strong style="color: ${plColor};">${pos.unrealizedPL >= 0 ? '+' : ''}$${pos.unrealizedPL.toFixed(2)} (${pos.unrealizedPLPct.toFixed(2)}%)</strong>
             <div style="font-size: 11px; color: var(--text-muted);">Val: $${pos.marketValue.toFixed(2)}</div>
@@ -273,14 +277,14 @@ function connectBrokerStatusStream() {
 }
 
 // ==========================================
-// Supported Stocks Modal & Chart Logic
+// Multi-Asset Directory Modal & Chart Logic
 // ==========================================
 function openStocksModal() {
   const directoryContainer = document.getElementById('stocks-directory-list');
-  directoryContainer.innerHTML = Object.entries(COMPANY_NAME_MAP).map(([symbol, name]) => `
+  directoryContainer.innerHTML = Object.entries(ASSET_DIRECTORY).map(([symbol, info]) => `
     <div class="stock-dir-item" onclick="selectStockFromDirectory('${symbol}')">
-      <span class="stock-dir-symbol">${symbol}</span>
-      <span class="stock-dir-name">${name}</span>
+      <span class="stock-dir-symbol">${symbol} <span style="font-size:10px; background:var(--accent-blue-soft); padding:2px 6px; border-radius:4px; color:var(--accent-blue);">${info.class}</span></span>
+      <span class="stock-dir-name">${info.name}</span>
     </div>
   `).join('');
   document.getElementById('stocks-modal').classList.remove('hidden');
@@ -291,13 +295,13 @@ function closeStocksModal() { document.getElementById('stocks-modal').classList.
 function filterStockDirectory() {
   const query = document.getElementById('modal-stock-filter').value.toLowerCase();
   const directoryContainer = document.getElementById('stocks-directory-list');
-  const filtered = Object.entries(COMPANY_NAME_MAP).filter(([symbol, name]) => symbol.toLowerCase().includes(query) || name.toLowerCase().includes(query));
-  directoryContainer.innerHTML = filtered.map(([symbol, name]) => `
+  const filtered = Object.entries(ASSET_DIRECTORY).filter(([symbol, info]) => symbol.toLowerCase().includes(query) || info.name.toLowerCase().includes(query) || info.class.toLowerCase().includes(query));
+  directoryContainer.innerHTML = filtered.map(([symbol, info]) => `
     <div class="stock-dir-item" onclick="selectStockFromDirectory('${symbol}')">
-      <span class="stock-dir-symbol">${symbol}</span>
-      <span class="stock-dir-name">${name}</span>
+      <span class="stock-dir-symbol">${symbol} <span style="font-size:10px; background:var(--accent-blue-soft); padding:2px 6px; border-radius:4px; color:var(--accent-blue);">${info.class}</span></span>
+      <span class="stock-dir-name">${info.name}</span>
     </div>
-  `).join('') || '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">No matching stocks.</p>';
+  `).join('') || '<p style="font-size: 12px; color: var(--text-muted); padding: 10px;">No matching assets.</p>';
 }
 
 function selectStockFromDirectory(symbol) {
@@ -311,15 +315,15 @@ function connectOrderBookStream(ticker) {
   
   orderBookSocket.onmessage = function(event) {
     const data = JSON.parse(event.data);
+    
+    // Dynamically update Best Bid, Best Ask, and dynamically calculated Spread with formatting
     document.getElementById('ob-bid').textContent = `$${data.level1.bid.toFixed(2)}`;
     document.getElementById('ob-ask').textContent = `$${data.level1.ask.toFixed(2)}`;
     document.getElementById('ob-spread').textContent = `$${data.level1.spread.toFixed(2)}`;
 
-    // Calculate max size for scaling depth volume bars
     const maxBidSize = Math.max(...data.level2.bids.map(b => b.size), 1000);
     const maxAskSize = Math.max(...data.level2.asks.map(a => a.size), 1000);
 
-    // Render Bids with proportional depth volume bars
     document.getElementById('ob-bids-list').innerHTML = data.level2.bids.map(b => {
       const pct = Math.min(100, Math.round((b.size / maxBidSize) * 100));
       return `
@@ -331,7 +335,6 @@ function connectOrderBookStream(ticker) {
       `;
     }).join('');
 
-    // Render Asks with proportional depth volume bars
     document.getElementById('ob-asks-list').innerHTML = data.level2.asks.map(a => {
       const pct = Math.min(100, Math.round((a.size / maxAskSize) * 100));
       return `
@@ -367,8 +370,8 @@ function filterDataByTimeframe(data, tf) {
 }
 
 function renderChart(ticker, historicalData) {
-  const cName = COMPANY_NAME_MAP[ticker] || ticker;
-  document.getElementById('chart-title').textContent = `${cName} (${ticker}) Trajectory`;
+  const assetInfo = ASSET_DIRECTORY[ticker] || { name: ticker };
+  document.getElementById('chart-title').textContent = `${assetInfo.name} (${ticker}) Trajectory`;
   const ctx = document.getElementById('stockChart').getContext('2d');
   const labels = historicalData.map(d => (d.Date || '').split('T')[0]);
   const prices = historicalData.map(d => d.Close);
@@ -379,7 +382,7 @@ function renderChart(ticker, historicalData) {
 
   stockChart = new Chart(ctx, {
     type: 'line',
-    data: { labels: labels, datasets: [{ label: 'Closing Price', data: prices, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', borderWidth: 2.5, fill: true, tension: 0.2, pointRadius: 2 }] },
+    data: { labels: labels, datasets: [{ label: 'Price Action', data: prices, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', borderWidth: 2.5, fill: true, tension: 0.2, pointRadius: 2 }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -414,7 +417,7 @@ async function fetchIntelligence(tickerInputVal) {
     activeCurrentPrice = resData.current_price;
 
     document.getElementById('val-price').textContent = `$${activeCurrentPrice.toFixed(2)}`;
-    document.getElementById('val-company-name').textContent = `${resData.company_name} Market Base`;
+    document.getElementById('val-company-name').textContent = `${resData.company_name} (${resData.asset_class})`;
     
     const retPct = resData.predictions.next_return_pct;
     const retElem = document.getElementById('val-return');
@@ -434,16 +437,20 @@ async function fetchIntelligence(tickerInputVal) {
 
     document.getElementById('rec-badge').textContent = `Signal Score: ${rec.score > 0 ? '+' : ''}${rec.score}`;
     document.getElementById('rec-reasons-list').innerHTML = (rec.reasons || []).map(r => `<li>• ${r}</li>`).join('');
-    document.getElementById('peer-chips-container').innerHTML = (resData.peers || []).map(p => `<button onclick="selectTicker('${p}')">${COMPANY_NAME_MAP[p] || p} (${p})</button>`).join('');
+    
+    const assetInfoMap = ASSET_DIRECTORY;
+    document.getElementById('peer-chips-container').innerHTML = (resData.peers || []).map(p => {
+      const pInfo = assetInfoMap[p] || { name: p };
+      return `<button onclick="selectTicker('${p}')">${pInfo.name} (${p})</button>`;
+    }).join('');
 
     document.getElementById('val-rsi').textContent = resData.technical_indicators.rsi_14;
     document.getElementById('val-vix').textContent = resData.technical_indicators.vix;
     document.getElementById('val-macd').textContent = resData.technical_indicators.macd;
     document.getElementById('val-regime').textContent = `Regime: ${resData.market_regime.label}`;
 
-    let modelSourceLabel = resData.predictions.lstm_active ? "Scratch-Built LSTM Sequential & Conformal XGBoost" : "XGBoost Conformal Ensemble";
     document.getElementById('val-context').innerHTML = `
-      ${modelSourceLabel} predicts a target of <strong>$${resData.predictions.target_price.toFixed(2)}</strong> 
+      Multi-Asset AI Engine predicts a target of <strong>$${resData.predictions.target_price.toFixed(2)}</strong> 
       for <strong>${resData.company_name}</strong> with a 90% confidence corridor between 
       <strong>$${resData.predictions.lower_bound_price.toFixed(2)}</strong> and <strong>$${resData.predictions.upper_bound_price.toFixed(2)}</strong>.
     `;
@@ -457,7 +464,7 @@ async function fetchIntelligence(tickerInputVal) {
     dashboard.classList.remove('hidden');
   } catch (err) {
     console.error("API error:", err);
-    alert("Error fetching stock intelligence data. Ensure FastAPI backend is running on port 8000.");
+    alert("Error fetching asset intelligence data. Ensure FastAPI backend is running on port 8000.");
     loader.classList.add('hidden');
   }
 }
@@ -524,24 +531,24 @@ function openFactModal(claimIdx) {
   document.getElementById('fact-modal-publisher').textContent = claim.publisher || 'Independent Audit';
   document.getElementById('fact-modal-rating').textContent = claim.rating || 'Unverified';
   document.getElementById('fact-modal-desc').textContent = claim.description || `Evaluated by verification API. Rating: ${claim.rating}.`;
-  document.getElementById('fact-modal').classList.remove('hidden');
+  document.getElementById('fact-modal').classList.add('hidden');
 }
 
 function closeFactModal() { document.getElementById('fact-modal').classList.add('hidden'); }
 
 // Tour Steps
 const tourSteps = [
-  { id: "tour-step-1", title: "1. Current Market Price", desc: "Displays live execution price and allows one-click watchlisting." },
-  { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the hybrid LSTM + XGBoost architecture." },
+  { id: "tour-step-1", title: "1. Current Asset Price", desc: "Displays live execution price across equities, crypto, forex, and derivatives." },
+  { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the multi-asset AI model." },
   { id: "tour-step-3", title: "3. 90% Safety Floor", desc: "Calculates downside risk floor using Quantile Conformal XGBoost." },
   { id: "tour-step-4", title: "4. 90% Upside Ceiling", desc: "Calculates upside potential ceiling." },
-  { id: "broker-btn", title: "5. Direct Broker Router", desc: "Click here to execute live or paper orders directly through broker APIs like Alpaca." },
-  { id: "portfolio-btn", title: "6. Portfolio & Watchlist Tracker", desc: "Manage custom watchlists and simulate portfolio gains." },
-  { id: "tour-step-6", title: "7. AI Recommendation Engine", desc: "Evaluates RSI momentum, HMM regimes, and gives a Signal Score verdict." },
+  { id: "broker-btn", title: "5. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
+  { id: "portfolio-btn", title: "6. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
+  { id: "tour-step-6", title: "7. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
   { id: "tour-step-7", title: "8. Technical Trajectory & Controls", desc: "Visualizes moving price history with Fibonacci and Support/Resistance tools." },
   { id: "tour-step-8", title: "9. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
-  { id: "tour-step-9", title: "10. Real-Time Financial News", desc: "Aggregates filtered news feeds and rumor inspections with pagination." },
-  { id: "tour-step-11", title: "11. Direct Exchange L1/L2 Stream", desc: "Streams real-time institutional Level 1 & Level 2 order book depth quotes with volume depth bars." }
+  { id: "tour-step-9", title: "10. Real-Time Market News", desc: "Aggregates filtered news feeds and rumor inspections with pagination." },
+  { id: "tour-step-11", title: "11. Multi-Asset L1/L2 Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes with volume depth bars." }
 ];
 
 let currentTourIdx = 0;

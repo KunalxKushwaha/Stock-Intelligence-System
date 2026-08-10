@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Stock Intelligence System - Professional Tier</title>
+  <title>AI Stock Intelligence System - Multi-Asset Tier</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -15,7 +15,7 @@
       <div class="brand-icon">⚡</div>
       <div>
         <h1>Stock Intelligence System <span class="badge">PRO</span></h1>
-        <p>Direct Exchange L1/L2 Feeds • Bracket Orders • Live Ledger</p>
+        <p>Multi-Asset & Derivatives • L1/L2 Feeds • Bracket Orders</p>
       </div>
     </div>
 
@@ -23,26 +23,27 @@
       <div class="quick-chips">
         <button onclick="selectTicker('AAPL')">Apple (AAPL)</button>
         <button onclick="selectTicker('NVDA')">Nvidia (NVDA)</button>
-        <button onclick="selectTicker('TSLA')">Tesla (TSLA)</button>
-        <button onclick="selectTicker('MSFT')">Microsoft (MSFT)</button>
-        <button onclick="selectTicker('AMZN')">Amazon (AMZN)</button>
+        <button onclick="selectTicker('BTCUSD')">Bitcoin (BTC)</button>
+        <button onclick="selectTicker('EURUSD')">Forex (EUR)</button>
+        <button onclick="selectTicker('GC=F')">Gold (GC=F)</button>
       </div>
       
       <form id="search-form" onsubmit="handleSearch(event)">
-        <input type="text" id="ticker-input" list="stock-suggestions" placeholder="Search Ticker..." value="AAPL" autocomplete="off"/>
+        <input type="text" id="ticker-input" list="stock-suggestions" placeholder="Search Ticker (e.g. BTCUSD, AAPL)..." value="AAPL" autocomplete="off"/>
         <datalist id="stock-suggestions">
-          <option value="AAPL">Apple Inc. (AAPL)</option>
-          <option value="NVDA">Nvidia Corp. (NVDA)</option>
-          <option value="TSLA">Tesla Inc. (TSLA)</option>
-          <option value="MSFT">Microsoft Corp. (MSFT)</option>
-          <option value="AMZN">Amazon.com Inc. (AMZN)</option>
+          <option value="AAPL">Apple Inc. (Equities)</option>
+          <option value="NVDA">Nvidia Corp. (Equities)</option>
+          <option value="BTCUSD">Bitcoin USD (Crypto)</option>
+          <option value="EURUSD">Euro / USD (Forex)</option>
+          <option value="GC=F">Gold Futures (Commodities)</option>
+          <option value="SPY">S&P 500 ETF (Derivatives)</option>
         </datalist>
         <button type="submit" class="btn-primary">Search</button>
       </form>
       
       <button id="portfolio-btn" class="btn-icon" onclick="openPortfolioModal()" title="Portfolio & Watchlist">⭐ Portfolio</button>
       <button id="broker-btn" class="btn-icon" onclick="openBrokerModal()" title="Broker Execution">🏛️ Broker Router</button>
-      <button id="stocks-btn" class="btn-icon" onclick="openStocksModal()" title="Supported Stocks">📊 Stocks</button>
+      <button id="stocks-btn" class="btn-icon" onclick="openStocksModal()" title="Multi-Asset Directory">📊 Assets</button>
       <button id="tour-btn" class="btn-icon" onclick="startTour()" title="Tour">💡 Tour</button>
       <button id="theme-btn" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
     </div>
@@ -50,7 +51,7 @@
 
   <div id="loader" class="loader-container">
     <div class="spinner"></div>
-    <p>Connecting to Direct Exchange L1/L2 Vendor Feeds, Computing HMM Regimes & Conformal Bounds...</p>
+    <p>Connecting to Multi-Asset Exchange Feeds, Computing HMM Regimes & Conformal Bounds...</p>
   </div>
 
   <main id="dashboard" class="main-container hidden">
@@ -58,10 +59,10 @@
     <section class="metrics-grid">
       <div class="card" id="tour-step-1">
         <div class="card-header">
-          <span class="card-title">Current Market Price</span>
+          <span class="card-title">Current Asset Price</span>
           <div class="header-actions-inline">
             <button id="watchlist-toggle-btn" class="btn-watchlist-star" onclick="toggleCurrentWatchlist()" title="Save to Watchlist">☆</button>
-            <span class="live-badge">● DIRECT FEED</span>
+            <span class="live-badge">● MULTI-ASSET</span>
           </div>
         </div>
         <div class="card-value" id="val-price">$0.00</div>
@@ -105,7 +106,7 @@
           <ul id="rec-reasons-list"></ul>
         </div>
         <div class="rec-peers">
-          <h4>🔍 Discover Industry Peers:</h4>
+          <h4>🔍 Discover Related Assets:</h4>
           <div id="peer-chips-container" class="quick-chips"></div>
         </div>
       </div>
@@ -115,7 +116,7 @@
       <div class="card chart-card" id="tour-step-7">
         <div class="chart-header">
           <div>
-            <h2 id="chart-title">AAPL Technical Trajectory</h2>
+            <h2 id="chart-title">Asset Trajectory</h2>
             <p class="card-sub">Moving Price Action & Trend Indicators</p>
           </div>
           <div class="chart-controls-group">
@@ -158,7 +159,7 @@
     <section class="feeds-grid-2">
       <div class="card" id="tour-step-9">
         <div class="card-header">
-          <h3>📰 Real-time Financial News</h3>
+          <h3>📰 Real-time Market News</h3>
           <div class="news-filter-tabs">
             <button class="news-tab-btn active" onclick="switchNewsTab('general', this)">General News</button>
             <button class="news-tab-btn" onclick="switchNewsTab('verified', this)">Verified News</button>
@@ -173,8 +174,8 @@
 
       <div class="card orderbook-card" id="tour-step-11">
         <div class="card-header">
-          <h3>⚡ Direct Exchange L1/L2 Order Book</h3>
-          <span class="live-badge">● L2 STREAMING</span>
+          <h3>⚡ Multi-Asset L1/L2 Order Book</h3>
+          <span class="live-badge">● STREAMING</span>
         </div>
         <div class="orderbook-container">
           <div class="ob-metrics">
@@ -199,19 +200,19 @@
         <span class="badge-modal">Direct Brokerage Order Router</span>
         <button onclick="closeBrokerModal()" class="modal-close-btn">&times;</button>
       </div>
-      <p style="font-size: 13px; color: var(--text-muted);">Route live orders instantly via direct API integration with bracket risk controls.</p>
+      <p style="font-size: 13px; color: var(--text-muted);">Route live orders instantly across equities, crypto, forex, and derivatives.</p>
       
       <div class="position-form-container" style="grid-template-columns: 1fr 1fr; margin-top: 10px;">
         <div class="position-form-group">
           <label class="form-label">Select Broker API</label>
           <select id="broker-select">
-            <option value="alpaca">Alpaca Paper / Live API</option>
-            <option value="interactive_brokers">Interactive Brokers (IBKR)</option>
+            <option value="alpaca">Broker Gateway (Paper/Live)</option>
+            <option value="interactive_brokers">Interactive Brokers (TWS)</option>
             <option value="robinhood">Robinhood Securities API</option>
           </select>
         </div>
         <div class="position-form-group">
-          <label class="form-label">Target Symbol</label>
+          <label class="form-label">Target Asset</label>
           <input type="text" id="broker-ticker-input" value="AAPL" readonly />
         </div>
         <div class="position-form-group">
@@ -222,8 +223,8 @@
           </select>
         </div>
         <div class="position-form-group">
-          <label class="form-label">Quantity (Shares)</label>
-          <input type="number" id="broker-qty-input" value="10" min="1" />
+          <label class="form-label">Quantity / Units</label>
+          <input type="number" id="broker-qty-input" value="10" min="0.01" step="0.01" />
         </div>
         <div class="position-form-group">
           <label class="form-label">Order Type</label>
@@ -238,17 +239,17 @@
         </div>
         <div class="position-form-group">
           <label class="form-label">🛡️ Stop-Loss Price ($)</label>
-          <input type="number" id="broker-sl-input" placeholder="Optional (e.g. 170.00)" step="0.01" />
+          <input type="number" id="broker-sl-input" placeholder="Optional" step="0.01" />
         </div>
         <div class="position-form-group">
           <label class="form-label">🎯 Take-Profit Price ($)</label>
-          <input type="number" id="broker-tp-input" placeholder="Optional (e.g. 210.00)" step="0.01" />
+          <input type="number" id="broker-tp-input" placeholder="Optional" step="0.01" />
         </div>
       </div>
 
       <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 10px;">
         <button onclick="closeBrokerModal()" class="btn-secondary">Cancel</button>
-        <button onclick="submitBrokerOrder()" class="btn-primary" style="background: var(--accent-green);">🚀 Submit Bracket Order</button>
+        <button onclick="submitBrokerOrder()" class="btn-primary" style="background: var(--accent-green);">🚀 Submit Multi-Asset Order</button>
       </div>
 
       <div id="broker-response-box" class="hidden" style="margin-top: 14px; padding: 12px; background: var(--panel-sub); border: 1px solid var(--border-color); border-radius: 8px; font-size: 12px;"></div>
@@ -266,7 +267,7 @@
       </div>
       <div class="portfolio-tabs">
         <button class="port-tab-btn active" onclick="switchPortfolioTab('watchlist', this)">⭐ Custom Watchlist</button>
-        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Live Broker Positions</button>
+        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Multi-Asset Positions</button>
       </div>
       <div id="tab-watchlist" class="port-tab-content"><div id="watchlist-items-container" class="port-list-container"></div></div>
       <div id="tab-positions" class="port-tab-content hidden">
@@ -280,15 +281,15 @@
     </div>
   </div>
 
-  <!-- Supported Stocks Directory Modal (55+ Equities) -->
+  <!-- Multi-Asset Class Directory Modal -->
   <div id="stocks-modal" class="modal-overlay hidden">
     <div class="modal-card stocks-modal-card">
       <div class="modal-header">
-        <span class="badge-modal">Database Directory</span>
+        <span class="badge-modal">Multi-Asset Directory</span>
         <button onclick="closeStocksModal()" class="modal-close-btn">&times;</button>
       </div>
-      <h3 class="modal-claim-title">Indexed Database Stocks & Equities (50+ Options)</h3>
-      <div class="stocks-search-box"><input type="text" id="modal-stock-filter" placeholder="Filter stocks..." oninput="filterStockDirectory()" /></div>
+      <h3 class="modal-claim-title">Equities, Crypto, Forex, Commodities & Derivatives</h3>
+      <div class="stocks-search-box"><input type="text" id="modal-stock-filter" placeholder="Filter assets across classes..." oninput="filterStockDirectory()" /></div>
       <div id="stocks-directory-list" class="stocks-directory-grid"></div>
       <div class="modal-footer"><button onclick="closeStocksModal()" class="btn-primary">Close Directory</button></div>
     </div>
@@ -319,7 +320,7 @@
         <button onclick="closeTour()" class="tour-close-btn">&times;</button>
       </div>
       <h3 id="tour-title">Welcome to the Guided Tour</h3>
-      <p id="tour-description">Learn how to navigate your AI Stock Intelligence Platform.</p>
+      <p id="tour-description">Learn how to navigate your Multi-Asset Intelligence Platform.</p>
       <div class="tour-footer">
         <button id="tour-prev-btn" onclick="prevTourStep()" class="btn-secondary">Previous</button>
         <button id="tour-next-btn" onclick="nextTourStep()" class="btn-primary">Next</button>
