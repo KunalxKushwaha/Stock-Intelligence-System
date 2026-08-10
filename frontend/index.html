@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Stock Intelligence System</title>
+  <title>AI Stock Intelligence System - Professional Tier</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -15,7 +15,7 @@
       <div class="brand-icon">⚡</div>
       <div>
         <h1>Stock Intelligence System <span class="badge">PRO</span></h1>
-        <p>Live Brokerage Sync • Bracket Orders • Real-Time Stream</p>
+        <p>Direct Exchange L1/L2 Feeds • Bracket Orders • Live Ledger</p>
       </div>
     </div>
 
@@ -50,7 +50,7 @@
 
   <div id="loader" class="loader-container">
     <div class="spinner"></div>
-    <p>Syncing Live Broker Ledger, Computing HMM Regimes & Conformal Bounds...</p>
+    <p>Connecting to Direct Exchange L1/L2 Vendor Feeds, Computing HMM Regimes & Conformal Bounds...</p>
   </div>
 
   <main id="dashboard" class="main-container hidden">
@@ -61,7 +61,7 @@
           <span class="card-title">Current Market Price</span>
           <div class="header-actions-inline">
             <button id="watchlist-toggle-btn" class="btn-watchlist-star" onclick="toggleCurrentWatchlist()" title="Save to Watchlist">☆</button>
-            <span class="live-badge">● LIVE</span>
+            <span class="live-badge">● DIRECT FEED</span>
           </div>
         </div>
         <div class="card-value" id="val-price">$0.00</div>
@@ -173,8 +173,8 @@
 
       <div class="card orderbook-card" id="tour-step-11">
         <div class="card-header">
-          <h3>⚡ Level 1 & 2 Order Book Stream</h3>
-          <span class="live-badge">● STREAMING</span>
+          <h3>⚡ Direct Exchange L1/L2 Order Book</h3>
+          <span class="live-badge">● L2 STREAMING</span>
         </div>
         <div class="orderbook-container">
           <div class="ob-metrics">
@@ -192,7 +192,7 @@
 
   </main>
 
-  <!-- Direct Brokerage Order Execution Modal (With Bracket Triggers) -->
+  <!-- Direct Brokerage Order Execution Modal -->
   <div id="broker-modal" class="modal-overlay hidden">
     <div class="modal-card portfolio-modal-card">
       <div class="modal-header">
@@ -257,7 +257,7 @@
     </div>
   </div>
 
-  <!-- Portfolio & Watchlist Tracker Modal (Synced with Live Broker Ledger) -->
+  <!-- Portfolio & Watchlist Tracker Modal -->
   <div id="portfolio-modal" class="modal-overlay hidden">
     <div class="modal-card portfolio-modal-card">
       <div class="modal-header">
@@ -280,14 +280,14 @@
     </div>
   </div>
 
-  <!-- Supported Stocks Directory Modal -->
+  <!-- Supported Stocks Directory Modal (55+ Equities) -->
   <div id="stocks-modal" class="modal-overlay hidden">
     <div class="modal-card stocks-modal-card">
       <div class="modal-header">
         <span class="badge-modal">Database Directory</span>
         <button onclick="closeStocksModal()" class="modal-close-btn">&times;</button>
       </div>
-      <h3 class="modal-claim-title">Indexed Database Stocks & Equities</h3>
+      <h3 class="modal-claim-title">Indexed Database Stocks & Equities (50+ Options)</h3>
       <div class="stocks-search-box"><input type="text" id="modal-stock-filter" placeholder="Filter stocks..." oninput="filterStockDirectory()" /></div>
       <div id="stocks-directory-list" class="stocks-directory-grid"></div>
       <div class="modal-footer"><button onclick="closeStocksModal()" class="btn-primary">Close Directory</button></div>

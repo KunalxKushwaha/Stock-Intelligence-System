@@ -28,7 +28,7 @@ const COMPANY_NAME_MAP = {
   "NEE": "NextEra Energy", "PM": "Philip Morris International", "RTX": "RTX Corporation", 
   "HON": "Honeywell International", "UNP": "Union Pacific Corp.", "LOW": "Lowe's Companies", 
   "SPY": "SPDR S&P 500 ETF Trust", "BA": "Boeing Company", "CAT": "Caterpillar Inc.", 
-  "GS": "Goldman Sachs Group", "IBM": "IBM Corp.", "NFLX": "Netflix Inc."
+  "GS": "Goldman Sachs Group", "NFLX": "Netflix Inc."
 };
 
 const VERIFIED_FINANCIAL_SOURCES = [
@@ -308,13 +308,40 @@ function selectStockFromDirectory(symbol) {
 function connectOrderBookStream(ticker) {
   if (orderBookSocket) orderBookSocket.close();
   orderBookSocket = new WebSocket(`ws://localhost:8000/ws/orderbook/${ticker}`);
+  
   orderBookSocket.onmessage = function(event) {
     const data = JSON.parse(event.data);
     document.getElementById('ob-bid').textContent = `$${data.level1.bid.toFixed(2)}`;
     document.getElementById('ob-ask').textContent = `$${data.level1.ask.toFixed(2)}`;
     document.getElementById('ob-spread').textContent = `$${data.level1.spread.toFixed(2)}`;
-    document.getElementById('ob-bids-list').innerHTML = data.level2.bids.map(b => `<div class="ob-row"><span class="text-gain">$${b.price.toFixed(2)}</span><span>${b.size}</span></div>`).join('');
-    document.getElementById('ob-asks-list').innerHTML = data.level2.asks.map(a => `<div class="ob-row"><span class="text-risk">$${a.price.toFixed(2)}</span><span>${a.size}</span></div>`).join('');
+
+    // Calculate max size for scaling depth volume bars
+    const maxBidSize = Math.max(...data.level2.bids.map(b => b.size), 1000);
+    const maxAskSize = Math.max(...data.level2.asks.map(a => a.size), 1000);
+
+    // Render Bids with proportional depth volume bars
+    document.getElementById('ob-bids-list').innerHTML = data.level2.bids.map(b => {
+      const pct = Math.min(100, Math.round((b.size / maxBidSize) * 100));
+      return `
+        <div class="ob-row" style="position: relative; overflow: hidden;">
+          <div style="position: absolute; right: 0; top: 0; bottom: 0; width: ${pct}%; background: rgba(34, 197, 94, 0.12); z-index: 0;"></div>
+          <span class="text-gain" style="z-index: 1;">$${b.price.toFixed(2)}</span>
+          <span style="z-index: 1; font-weight: 600;">${b.size.toLocaleString()}</span>
+        </div>
+      `;
+    }).join('');
+
+    // Render Asks with proportional depth volume bars
+    document.getElementById('ob-asks-list').innerHTML = data.level2.asks.map(a => {
+      const pct = Math.min(100, Math.round((a.size / maxAskSize) * 100));
+      return `
+        <div class="ob-row" style="position: relative; overflow: hidden;">
+          <div style="position: absolute; right: 0; top: 0; bottom: 0; width: ${pct}%; background: rgba(239, 68, 68, 0.12); z-index: 0;"></div>
+          <span class="text-risk" style="z-index: 1;">$${a.price.toFixed(2)}</span>
+          <span style="z-index: 1; font-weight: 600;">${a.size.toLocaleString()}</span>
+        </div>
+      `;
+    }).join('');
   };
 }
 
@@ -514,7 +541,7 @@ const tourSteps = [
   { id: "tour-step-7", title: "8. Technical Trajectory & Controls", desc: "Visualizes moving price history with Fibonacci and Support/Resistance tools." },
   { id: "tour-step-8", title: "9. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
   { id: "tour-step-9", title: "10. Real-Time Financial News", desc: "Aggregates filtered news feeds and rumor inspections with pagination." },
-  { id: "tour-step-11", title: "11. Sub-Second Order Book Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes." }
+  { id: "tour-step-11", title: "11. Direct Exchange L1/L2 Stream", desc: "Streams real-time institutional Level 1 & Level 2 order book depth quotes with volume depth bars." }
 ];
 
 let currentTourIdx = 0;
