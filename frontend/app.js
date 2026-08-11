@@ -316,7 +316,6 @@ function connectOrderBookStream(ticker) {
   orderBookSocket.onmessage = function(event) {
     const data = JSON.parse(event.data);
     
-    // Dynamically update Best Bid, Best Ask, and dynamically calculated Spread with formatting
     document.getElementById('ob-bid').textContent = `$${data.level1.bid.toFixed(2)}`;
     document.getElementById('ob-ask').textContent = `$${data.level1.ask.toFixed(2)}`;
     document.getElementById('ob-spread').textContent = `$${data.level1.spread.toFixed(2)}`;
@@ -469,7 +468,7 @@ async function fetchIntelligence(tickerInputVal) {
   }
 }
 
-// News & Rumor Rendering
+// News & Rumor Rendering (Strictly Separating General vs Verified News)
 function switchNewsTab(filterType, btnElem) {
   activeNewsFilter = filterType;
   newsDisplayLimit = 5;
@@ -489,9 +488,24 @@ function renderMergedNewsSection() {
   if (!container) return;
 
   let dataset = [];
-  if (activeNewsFilter === 'general') dataset = currentArticles;
-  else if (activeNewsFilter === 'verified') dataset = currentArticles.filter(art => VERIFIED_FINANCIAL_SOURCES.some(vs => (art.source || '').toLowerCase().includes(vs)));
-  else if (activeNewsFilter === 'rumored') dataset = currentFactClaims.map((claim, idx) => ({ title: `"${claim.claim}"`, url: '#', source: `Source: ${claim.publisher}`, published_at: 'Rumor Checked', isClaim: true, claimIndex: idx, rating: claim.rating }));
+  if (activeNewsFilter === 'general') {
+    // General News strictly shows non-verified / general financial items so verified sources don't mix in
+    dataset = currentArticles.filter(art => !VERIFIED_FINANCIAL_SOURCES.some(vs => (art.source || '').toLowerCase().includes(vs)));
+  } else if (activeNewsFilter === 'verified') {
+    // Verified News exclusively shows trusted financial sources
+    dataset = currentArticles.filter(art => VERIFIED_FINANCIAL_SOURCES.some(vs => (art.source || '').toLowerCase().includes(vs)));
+  } else if (activeNewsFilter === 'rumored') {
+    dataset = currentFactClaims.map((claim, idx) => ({ 
+      title: `"${claim.claim}"`, 
+      url: '#', 
+      source: `Source: ${claim.publisher}`, 
+      published_at: 'Rumor Checked', 
+      isClaim: true, 
+      claimIndex: idx, 
+      rating: claim.rating,
+      nlp_fake_news_analysis: claim.nlp_fake_news_analysis 
+    }));
+  }
 
   if (dataset.length === 0) {
     container.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; padding: 10px;">No ${activeNewsFilter} items available.</p>`;
@@ -502,18 +516,24 @@ function renderMergedNewsSection() {
   const visibleItems = dataset.slice(0, newsDisplayLimit);
   container.innerHTML = visibleItems.map(item => {
     if (item.isClaim) {
+      const nlpBadge = item.nlp_fake_news_analysis && item.nlp_fake_news_analysis.is_manipulated ? 
+        `<span class="fact-badge" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-red); margin-left:6px;">⚠️ ${item.nlp_fake_news_analysis.risk_type} (${item.nlp_fake_news_analysis.confidence}%)</span>` : '';
       return `
         <div class="feed-item" style="cursor: pointer;" onclick="openFactModal(${item.claimIndex})">
-          <div class="feed-title-container"><h4 style="font-weight: 500;">${item.title}</h4><span class="fact-badge fact-badge-rumor">Inspect Claim</span></div>
+          <div class="feed-title-container"><h4 style="font-weight: 500;">${item.title}</h4>${nlpBadge}<span class="fact-badge fact-badge-rumor">Inspect Claim</span></div>
           <div class="feed-meta"><span>${item.source}</span><strong style="color: var(--accent-red);">${item.rating}</strong></div>
         </div>
       `;
     } else {
       const isVerified = VERIFIED_FINANCIAL_SOURCES.some(vs => (item.source || '').toLowerCase().includes(vs));
       const badgeHtml = isVerified ? `<span class="fact-badge fact-badge-verified">🛡️ Verified Source</span>` : `<span class="fact-badge" style="background: rgba(100, 116, 139, 0.15); color: var(--text-muted);">📰 News</span>`;
+      
+      const nlpBadge = item.nlp_fake_news_analysis && item.nlp_fake_news_analysis.is_manipulated ? 
+        `<span class="fact-badge" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-red); margin-left:6px;" title="NLP Flagged: ${item.nlp_fake_news_analysis.risk_type}">⚠️ NLP Flagged</span>` : '';
+
       return `
         <a href="${item.url}" target="_blank" class="feed-item">
-          <div class="feed-title-container"><h4>${item.title}</h4>${badgeHtml}</div>
+          <div class="feed-title-container"><h4>${item.title}</h4>${badgeHtml}${nlpBadge}</div>
           <div class="feed-meta"><span>${item.source}</span><span>${item.published_at}</span></div>
         </a>
       `;
@@ -530,8 +550,14 @@ function openFactModal(claimIdx) {
   document.getElementById('fact-modal-claim').textContent = `"${claim.claim}"`;
   document.getElementById('fact-modal-publisher').textContent = claim.publisher || 'Independent Audit';
   document.getElementById('fact-modal-rating').textContent = claim.rating || 'Unverified';
-  document.getElementById('fact-modal-desc').textContent = claim.description || `Evaluated by verification API. Rating: ${claim.rating}.`;
-  document.getElementById('fact-modal').classList.add('hidden');
+  
+  let nlpDesc = "";
+  if (claim.nlp_fake_news_analysis) {
+    nlpDesc = ` | NLP Classifier Verdict: ${claim.nlp_fake_news_analysis.verdict} (${claim.nlp_fake_news_analysis.risk_type} - ${claim.nlp_fake_news_analysis.confidence}% Confidence)`;
+  }
+  
+  document.getElementById('fact-modal-desc').textContent = (claim.description || `Evaluated by verification API and Custom NLP Module. Rating: ${claim.rating}.`) + nlpDesc;
+  document.getElementById('fact-modal').classList.remove('hidden');
 }
 
 function closeFactModal() { document.getElementById('fact-modal').classList.add('hidden'); }
