@@ -1,329 +1,364 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Stock Intelligence System - Multi-Asset Tier</title>
+  <title>AI Stock Intelligence & Multi-Asset Terminal</title>
+  <!-- TradingView Lightweight Charts Library CDN -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-  <!-- Navigation Bar -->
+  <!-- Top Navigation Bar -->
   <header class="navbar">
-    <div class="brand">
-      <div class="brand-icon">⚡</div>
-      <div>
-        <h1>Stock Intelligence System <span class="badge">PRO</span></h1>
-        <p>Multi-Asset & Derivatives • L1/L2 Feeds • Bracket Orders</p>
-      </div>
+    <div class="nav-brand">
+      <span class="brand-icon">⚡</span>
+      <h1>AlphaTerminal <span class="badge-version">v2.5.0</span></h1>
     </div>
-
-    <div class="controls">
-      <div class="quick-chips">
-        <button onclick="selectTicker('AAPL')">Apple (AAPL)</button>
-        <button onclick="selectTicker('NVDA')">Nvidia (NVDA)</button>
-        <button onclick="selectTicker('BTCUSD')">Bitcoin (BTC)</button>
-        <button onclick="selectTicker('EURUSD')">Forex (EUR)</button>
-        <button onclick="selectTicker('GC=F')">Gold (GC=F)</button>
+    
+    <form class="search-form" onsubmit="handleSearch(event)">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="ticker-input" placeholder="Search Ticker (e.g. AAPL, NVDA, BTCUSD)..." value="AAPL">
       </div>
-      
-      <form id="search-form" onsubmit="handleSearch(event)">
-        <input type="text" id="ticker-input" list="stock-suggestions" placeholder="Search Ticker (e.g. BTCUSD, AAPL)..." value="AAPL" autocomplete="off"/>
-        <datalist id="stock-suggestions">
-          <option value="AAPL">Apple Inc. (Equities)</option>
-          <option value="NVDA">Nvidia Corp. (Equities)</option>
-          <option value="BTCUSD">Bitcoin USD (Crypto)</option>
-          <option value="EURUSD">Euro / USD (Forex)</option>
-          <option value="GC=F">Gold Futures (Commodities)</option>
-          <option value="SPY">S&P 500 ETF (Derivatives)</option>
-        </datalist>
-        <button type="submit" class="btn-primary">Search</button>
-      </form>
-      
-      <button id="portfolio-btn" class="btn-icon" onclick="openPortfolioModal()" title="Portfolio & Watchlist">⭐ Portfolio</button>
-      <button id="broker-btn" class="btn-icon" onclick="openBrokerModal()" title="Broker Execution">🏛️ Broker Router</button>
-      <button id="stocks-btn" class="btn-icon" onclick="openStocksModal()" title="Multi-Asset Directory">📊 Assets</button>
-      <button id="tour-btn" class="btn-icon" onclick="startTour()" title="Tour">💡 Tour</button>
-      <button id="theme-btn" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">🌙 Dark</button>
+      <button type="submit" class="btn-primary">Analyze</button>
+    </form>
+
+    <div class="nav-actions">
+      <button onclick="openStocksModal()" class="btn-secondary">📂 Asset Directory</button>
+      <button onclick="openBrokerModal()" class="btn-secondary" id="broker-btn">⚡ Broker Router</button>
+      <button onclick="openPortfolioModal()" class="btn-secondary" id="portfolio-btn">📊 Portfolio Sync</button>
+      <button onclick="startTour()" class="btn-secondary">🎓 Tour</button>
+      <button onclick="toggleTheme()" class="btn-secondary" id="theme-btn">☀️ Light</button>
     </div>
   </header>
 
-  <div id="loader" class="loader-container">
-    <div class="spinner"></div>
-    <p>Connecting to Multi-Asset Exchange Feeds, Computing HMM Regimes & Conformal Bounds...</p>
+  <!-- Quick Asset Chips -->
+  <div class="quick-chips-bar" id="tour-step-1">
+    <span class="chips-label">Quick Assets:</span>
+    <div id="peer-chips-container" style="display: flex; gap: 8px; overflow-x: auto;">
+      <button onclick="selectTicker('AAPL')">Apple (AAPL)</button>
+      <button onclick="selectTicker('NVDA')">Nvidia (NVDA)</button>
+      <button onclick="selectTicker('TSLA')">Tesla (TSLA)</button>
+      <button onclick="selectTicker('BTCUSD')">Bitcoin (BTCUSD)</button>
+      <button onclick="selectTicker('EURUSD')">Euro/USD (EURUSD)</button>
+      <button onclick="selectTicker('GC=F')">Gold Futures (GC=F)</button>
+    </div>
   </div>
 
-  <main id="dashboard" class="main-container hidden">
+  <!-- Loading State -->
+  <div id="loader" class="loader-container hidden">
+    <div class="spinner"></div>
+    <p>Running Multi-Model Inference & Fetching Institutional Feeds...</p>
+  </div>
 
-    <section class="metrics-grid">
-      <div class="card" id="tour-step-1">
-        <div class="card-header">
-          <span class="card-title">Current Asset Price</span>
-          <div class="header-actions-inline">
-            <button id="watchlist-toggle-btn" class="btn-watchlist-star" onclick="toggleCurrentWatchlist()" title="Save to Watchlist">☆</button>
-            <span class="live-badge">● MULTI-ASSET</span>
-          </div>
-        </div>
-        <div class="card-value" id="val-price">$0.00</div>
-        <div class="card-sub" id="val-company-name">Active Market Execution Base</div>
-      </div>
+  <!-- Main Dashboard Container -->
+  <main class="dashboard hidden" id="dashboard">
 
-      <div class="card" id="tour-step-2">
-        <div class="card-header"><span class="card-title">Predicted Target Return</span></div>
-        <div class="card-value" id="val-return">+0.00%</div>
-        <div class="card-sub">Est. Target: <strong id="val-target">$0.00</strong></div>
-      </div>
-
-      <div class="card card-risk" id="tour-step-3">
-        <div class="card-header"><span class="card-title title-risk">90% Safety Floor (Lower)</span></div>
-        <div class="card-value text-risk" id="val-lower">$0.00</div>
-        <div class="card-sub">Conformal Risk Floor</div>
-      </div>
-
-      <div class="card card-gain" id="tour-step-4">
-        <div class="card-header"><span class="card-title title-gain">90% Upside Ceiling (Upper)</span></div>
-        <div class="card-value text-gain" id="val-upper">$0.00</div>
-        <div class="card-sub">Conformal Return Upper</div>
-      </div>
-    </section>
-
-    <!-- Recommendation & Quick Trade Banner -->
-    <section class="card rec-card" id="tour-step-6">
-      <div class="rec-header">
-        <div>
-          <span class="card-title">AI Recommendation Engine</span>
-          <h2 id="rec-verdict-text" class="rec-verdict">Analyzing Verdict...</h2>
-        </div>
-        <div class="rec-actions-group">
-          <button onclick="openBrokerModal()" class="btn-primary" style="padding: 10px 18px; font-size: 13px;">⚡ Execute Live Trade</button>
-          <div id="rec-badge" class="rec-badge-pill">Score: 0</div>
+    <!-- Top Summary Banner -->
+    <section class="summary-banner">
+      <div class="asset-identity" id="tour-step-1">
+        <h2 id="val-company-name">Apple Inc. (Equities)</h2>
+        <div class="price-row">
+          <span class="current-price" id="val-price">$223.96</span>
+          <span class="price-change-badge" id="val-return">+2.45%</span>
+          <button id="watchlist-toggle-btn" class="watchlist-star-btn" onclick="toggleCurrentWatchlist()" title="Save to Watchlist">☆</button>
         </div>
       </div>
-      <div class="rec-body">
-        <div class="rec-reasons">
-          <h4>📊 Synthesis Rationale:</h4>
-          <ul id="rec-reasons-list"></ul>
+
+      <div class="prediction-cards-grid">
+        <div class="pred-card" id="tour-step-2">
+          <span class="card-label">Predicted Target Return</span>
+          <span class="card-value" id="val-target">$229.40</span>
+          <span class="card-sub">Next-Day Horizon</span>
         </div>
-        <div class="rec-peers">
-          <h4>🔍 Discover Related Assets:</h4>
-          <div id="peer-chips-container" class="quick-chips"></div>
+        <div class="pred-card" id="tour-step-3">
+          <span class="card-label">90% Safety Floor (5th Pct)</span>
+          <span class="card-value text-risk" id="val-lower">$218.10</span>
+          <span class="card-sub">Conformal Quantile Risk</span>
+        </div>
+        <div class="pred-card" id="tour-step-4">
+          <span class="card-label">90% Upside Ceiling (95th Pct)</span>
+          <span class="card-value text-gain" id="val-upper">$238.50</span>
+          <span class="card-sub">Conformal Quantile Margin</span>
         </div>
       </div>
     </section>
 
-    <section class="analytics-grid">
-      <div class="card chart-card" id="tour-step-7">
-        <div class="chart-header">
-          <div>
-            <h2 id="chart-title">Asset Trajectory</h2>
-            <p class="card-sub">Moving Price Action & Trend Indicators</p>
-          </div>
-          <div class="chart-controls-group">
-            <div id="val-regime" class="regime-badge">HMM State: Neutral</div>
-            <div class="drawing-tools-toolbar">
-              <button class="draw-btn active" onclick="toggleDrawingTool('none', this)">Normal</button>
-              <button class="draw-btn" onclick="toggleDrawingTool('fibonacci', this)">📐 Fibonacci</button>
-              <button class="draw-btn" onclick="toggleDrawingTool('support', this)">🛡️ Support/Resistance</button>
-              <button class="draw-btn" onclick="clearDrawings()" title="Clear Tools">🗑️ Reset</button>
+    <!-- Harmonized Professional Terminal Grid -->
+    <div class="dashboard-grid">
+
+      <!-- Left Column: Professional Charting Suite & Technicals (Aligned Height) -->
+      <div class="left-column">
+        
+        <!-- Advanced Professional Charting Suite Card -->
+        <section class="card charting-suite-card" id="tour-step-7">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 id="chart-title">AAPL Professional Charting Suite</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Powered by TradingView Lightweight Charts & Multi-Pane Technical Studies</p>
             </div>
-            <div class="timeframe-selector">
-              <button class="tf-btn" onclick="setTimeframe('1D', this)">1D</button>
-              <button class="tf-btn" onclick="setTimeframe('1W', this)">1W</button>
-              <button class="tf-btn" onclick="setTimeframe('1M', this)">1M</button>
-              <button class="tf-btn" onclick="setTimeframe('1Y', this)">1Y</button>
-              <button class="tf-btn active" onclick="setTimeframe('ALL', this)">ALL</button>
+            
+            <!-- Professional Charting Toolbar Controls -->
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <div class="chart-mode-group" style="display: flex; background: var(--bg-surface-alt); border-radius: 6px; padding: 2px; border: 1px solid var(--border-color);">
+                <button onclick="setChartType('candlestick')" id="btn-type-candle" class="tf-btn active">Candles</button>
+                <button onclick="setChartType('line')" id="btn-type-line" class="tf-btn">Line</button>
+              </div>
+
+              <div class="chart-indicators-group" style="display: flex; gap: 6px;">
+                <button onclick="toggleIndicator('sma')" id="ind-sma-btn" class="tf-btn" title="Toggle 20-Period SMA">SMA</button>
+                <button onclick="toggleIndicator('bb')" id="ind-bb-btn" class="tf-btn" title="Toggle Bollinger Bands">Bollinger</button>
+              </div>
+
+              <div class="timeframe-group" style="display: flex; gap: 4px;">
+                <button onclick="setTimeframe('1D', this)" class="tf-btn">1D</button>
+                <button onclick="setTimeframe('1W', this)" class="tf-btn">1W</button>
+                <button onclick="setTimeframe('1M', this)" class="tf-btn">1M</button>
+                <button onclick="setTimeframe('1Y', this)" class="tf-btn">1Y</button>
+                <button onclick="setTimeframe('ALL', this)" class="tf-btn active">ALL</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="chart-wrapper"><canvas id="stockChart"></canvas></div>
-        <div id="drawing-status-msg" class="drawing-status hidden"></div>
+
+          <!-- TradingView Advanced Chart Container -->
+          <div class="chart-container-wrapper" style="position: relative; width: 100%; height: 480px; margin-top: 12px;">
+            <div id="tradingview-chart-container" style="width: 100%; height: 100%;"></div>
+          </div>
+
+          <!-- Secondary Pane: Volume & Sub-Indicator Pane -->
+          <div class="sub-chart-pane-wrapper" style="position: relative; width: 100%; height: 120px; margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">VOLUME & MOMENTUM PANE</div>
+            <div id="tradingview-subchart-container" style="width: 100%; height: 100px;"></div>
+          </div>
+        </section>
+
+        <!-- Technical Indicators & Regime Grid (Restored perfectly below chart) -->
+        <section class="card" id="tour-step-8">
+          <div class="card-header">
+            <h3>📊 Technical Indicators & Market Regime</h3>
+          </div>
+          <div class="metrics-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+            <div class="metric-card">
+              <span class="m-label">14-Day RSI Momentum</span>
+              <span class="m-val" id="val-rsi">58.4</span>
+              <span class="m-sub" style="color: var(--accent-blue);">Neutral Zone</span>
+            </div>
+            <div class="metric-card">
+              <span class="m-label">CBOE VIX Volatility</span>
+              <span class="m-val" id="val-vix">16.5</span>
+              <span class="m-sub" style="color: var(--accent-green);">Low Volatility Regime</span>
+            </div>
+            <div class="metric-card">
+              <span class="m-label">MACD Histogram</span>
+              <span class="m-val" id="val-macd">+1.24</span>
+              <span class="m-sub text-gain">Bullish Crossover</span>
+            </div>
+          </div>
+        </section>
+
       </div>
 
-      <div class="card sidebar-card" id="tour-step-8">
-        <div>
-          <h3>Calculated Indicators</h3>
-          <div class="indicator-list">
-            <div class="indicator-item"><span>RSI (14) Momentum</span><strong id="val-rsi">0.00</strong></div>
-            <div class="indicator-item"><span>CBOE VIX Volatility</span><strong id="val-vix">0.00</strong></div>
-            <div class="indicator-item"><span>MACD Histogram</span><strong id="val-macd">0.00</strong></div>
-          </div>
-        </div>
-        <div class="info-box">
-          <strong>ℹ️ Model Context</strong>
-          <p id="val-context">Evaluating historical bounds and next-day price envelope.</p>
-        </div>
-      </div>
-    </section>
+      <!-- Right Column: AI Recommendations, News & Order Book Stream -->
+      <div class="right-column">
 
-    <section class="feeds-grid-2">
-      <div class="card" id="tour-step-9">
-        <div class="card-header">
-          <h3>📰 Real-time Market News</h3>
-          <div class="news-filter-tabs">
-            <button class="news-tab-btn active" onclick="switchNewsTab('general', this)">General News</button>
-            <button class="news-tab-btn" onclick="switchNewsTab('verified', this)">Verified News</button>
-            <button class="news-tab-btn" onclick="switchNewsTab('rumored', this)">Rumored News</button>
+        <!-- AI Recommendation Engine -->
+        <section class="card" id="tour-step-6">
+          <div class="card-header">
+            <h3>🤖 AI Recommendation Engine</h3>
+            <span class="badge-signal" id="rec-badge">Signal Score: +4</span>
           </div>
-        </div>
-        <div id="news-container" class="feed-list"></div>
-        <div id="news-more-wrapper" class="news-more-wrapper hidden">
-          <button onclick="loadMoreNews()" class="btn-secondary btn-more-news">More News</button>
-        </div>
+          <div class="rec-content">
+            <div class="verdict-display" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+              <span class="verdict-label" style="font-size: 13px; color: var(--text-muted);">Action Verdict:</span>
+              <strong id="rec-verdict-text" style="color: var(--accent-green); font-size: 18px;">Strong Buy</strong>
+            </div>
+            <ul class="reasons-list" id="rec-reasons-list" style="list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
+              <li>• RSI momentum indicates favorable upside expansion.</li>
+              <li>• HMM Regime detected Low Volatility Bullish market condition.</li>
+              <li>• FMP Sentiment Pipeline confirms strong social/transcript bullishness.</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Real-time Market News & Fake News Detection -->
+        <section class="card" id="tour-step-10">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>📰 Real-time Market News</h3>
+            <div class="news-tabs" style="display: flex; gap: 6px;">
+              <button onclick="switchNewsTab('general', this)" class="news-tab-btn active">General</button>
+              <button onclick="switchNewsTab('verified', this)" class="news-tab-btn">Verified</button>
+              <button onclick="switchNewsTab('rumored', this)" class="news-tab-btn">Rumors</button>
+            </div>
+          </div>
+          <div class="feed-container" id="news-container">
+            <p style="font-size: 13px; color: var(--text-muted); padding: 10px;">Loading institutional news feeds...</p>
+          </div>
+          <div id="news-more-wrapper" style="text-align: center; margin-top: 12px;" class="hidden">
+            <button onclick="loadMoreNews()" class="btn-secondary" style="width: 100%; font-size: 13px;">More News</button>
+          </div>
+        </section>
+
+        <!-- Real-Time Institutional L1/L2 Order Book Stream -->
+        <section class="card" id="tour-step-11">
+          <div class="card-header">
+            <h3>⚡ Multi-Asset L1/L2 Order Book</h3>
+            <span class="badge-live" style="font-size: 11px; background: rgba(34, 197, 94, 0.15); color: var(--accent-green); padding: 2px 8px; border-radius: 4px;">Live Feed</span>
+          </div>
+          <div class="orderbook-container">
+            <div class="ob-header-stats">
+              <div><span>Bid:</span> <strong id="ob-bid" class="text-gain">$223.90</strong></div>
+              <div><span>Ask:</span> <strong id="ob-ask" class="text-risk">$223.98</strong></div>
+              <div><span>Spread:</span> <strong id="ob-spread">$0.08</strong></div>
+            </div>
+            <div class="ob-tables-grid">
+              <div class="ob-side">
+                <div class="ob-side-title text-gain">Bids (Buy Orders)</div>
+                <div id="ob-bids-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+              </div>
+              <div class="ob-side">
+                <div class="ob-side-title text-risk">Asks (Sell Orders)</div>
+                <div id="ob-asks-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
       </div>
 
-      <div class="card orderbook-card" id="tour-step-11">
-        <div class="card-header">
-          <h3>⚡ Multi-Asset L1/L2 Order Book</h3>
-          <span class="live-badge">● STREAMING</span>
-        </div>
-        <div class="orderbook-container">
-          <div class="ob-metrics">
-            <div>Best Bid: <strong id="ob-bid" class="text-gain">$0.00</strong></div>
-            <div>Best Ask: <strong id="ob-ask" class="text-risk">$0.00</strong></div>
-            <div>Spread: <strong id="ob-spread">$0.00</strong></div>
-          </div>
-          <div class="ob-tables-wrapper">
-            <div class="ob-table-box"><span class="ob-title text-gain">Bids (Buy Orders)</span><div id="ob-bids-list"></div></div>
-            <div class="ob-table-box"><span class="ob-title text-risk">Asks (Sell Orders)</span><div id="ob-asks-list"></div></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
+    </div>
   </main>
 
-  <!-- Direct Brokerage Order Execution Modal -->
-  <div id="broker-modal" class="modal-overlay hidden">
-    <div class="modal-card portfolio-modal-card">
+  <!-- Modals -->
+  <div id="stocks-modal" class="modal hidden">
+    <div class="modal-content">
       <div class="modal-header">
-        <span class="badge-modal">Direct Brokerage Order Router</span>
-        <button onclick="closeBrokerModal()" class="modal-close-btn">&times;</button>
+        <h3>📂 Multi-Asset Directory</h3>
+        <button onclick="closeStocksModal()" class="close-btn">&times;</button>
       </div>
-      <p style="font-size: 13px; color: var(--text-muted);">Route live orders instantly across equities, crypto, forex, and derivatives.</p>
-      
-      <div class="position-form-container" style="grid-template-columns: 1fr 1fr; margin-top: 10px;">
-        <div class="position-form-group">
-          <label class="form-label">Select Broker API</label>
-          <select id="broker-select">
-            <option value="alpaca">Broker Gateway (Paper/Live)</option>
-            <option value="interactive_brokers">Interactive Brokers (TWS)</option>
-            <option value="robinhood">Robinhood Securities API</option>
-          </select>
-        </div>
-        <div class="position-form-group">
-          <label class="form-label">Target Asset</label>
-          <input type="text" id="broker-ticker-input" value="AAPL" readonly />
-        </div>
-        <div class="position-form-group">
-          <label class="form-label">Order Side</label>
-          <select id="broker-side-select">
-            <option value="buy">BUY (Long)</option>
-            <option value="sell">SELL (Short / Exit)</option>
-          </select>
-        </div>
-        <div class="position-form-group">
-          <label class="form-label">Quantity / Units</label>
-          <input type="number" id="broker-qty-input" value="10" min="0.01" step="0.01" />
-        </div>
-        <div class="position-form-group">
-          <label class="form-label">Order Type</label>
-          <select id="broker-type-select" onchange="toggleLimitPriceField()">
-            <option value="market">Market Order</option>
-            <option value="limit">Limit Order</option>
-          </select>
-        </div>
-        <div class="position-form-group hidden" id="limit-price-group">
-          <label class="form-label">Limit Price ($)</label>
-          <input type="number" id="broker-limit-input" placeholder="150.00" step="0.01" />
-        </div>
-        <div class="position-form-group">
-          <label class="form-label">🛡️ Stop-Loss Price ($)</label>
-          <input type="number" id="broker-sl-input" placeholder="Optional" step="0.01" />
-        </div>
-        <div class="position-form-group">
-          <label class="form-label">🎯 Take-Profit Price ($)</label>
-          <input type="number" id="broker-tp-input" placeholder="Optional" step="0.01" />
-        </div>
-      </div>
-
-      <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 10px;">
-        <button onclick="closeBrokerModal()" class="btn-secondary">Cancel</button>
-        <button onclick="submitBrokerOrder()" class="btn-primary" style="background: var(--accent-green);">🚀 Submit Multi-Asset Order</button>
-      </div>
-
-      <div id="broker-response-box" class="hidden" style="margin-top: 14px; padding: 12px; background: var(--panel-sub); border: 1px solid var(--border-color); border-radius: 8px; font-size: 12px;"></div>
-
-      <div class="modal-footer"><button onclick="closeBrokerModal()" class="btn-primary">Close</button></div>
-    </div>
-  </div>
-
-  <!-- Portfolio & Watchlist Tracker Modal -->
-  <div id="portfolio-modal" class="modal-overlay hidden">
-    <div class="modal-card portfolio-modal-card">
-      <div class="modal-header">
-        <span class="badge-modal">Portfolio & Live Broker Sync</span>
-        <button onclick="closePortfolioModal()" class="modal-close-btn">&times;</button>
-      </div>
-      <div class="portfolio-tabs">
-        <button class="port-tab-btn active" onclick="switchPortfolioTab('watchlist', this)">⭐ Custom Watchlist</button>
-        <button class="port-tab-btn" onclick="switchPortfolioTab('positions', this)">💼 Multi-Asset Positions</button>
-      </div>
-      <div id="tab-watchlist" class="port-tab-content"><div id="watchlist-items-container" class="port-list-container"></div></div>
-      <div id="tab-positions" class="port-tab-content hidden">
-        <div class="port-summary-bar">
-          <div>Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
-          <div>Buying Power: <strong id="port-cash-val">$0.00</strong></div>
-        </div>
-        <div id="positions-items-container" class="port-list-container"></div>
-      </div>
-      <div class="modal-footer"><button onclick="closePortfolioModal()" class="btn-primary">Done</button></div>
-    </div>
-  </div>
-
-  <!-- Multi-Asset Class Directory Modal -->
-  <div id="stocks-modal" class="modal-overlay hidden">
-    <div class="modal-card stocks-modal-card">
-      <div class="modal-header">
-        <span class="badge-modal">Multi-Asset Directory</span>
-        <button onclick="closeStocksModal()" class="modal-close-btn">&times;</button>
-      </div>
-      <h3 class="modal-claim-title">Equities, Crypto, Forex, Commodities & Derivatives</h3>
-      <div class="stocks-search-box"><input type="text" id="modal-stock-filter" placeholder="Filter assets across classes..." oninput="filterStockDirectory()" /></div>
-      <div id="stocks-directory-list" class="stocks-directory-grid"></div>
-      <div class="modal-footer"><button onclick="closeStocksModal()" class="btn-primary">Close Directory</button></div>
-    </div>
-  </div>
-
-  <!-- Fact-Check Detail Modal -->
-  <div id="fact-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <span id="fact-modal-badge" class="badge-modal">Fact Check Verification</span>
-        <button onclick="closeFactModal()" class="modal-close-btn">&times;</button>
-      </div>
-      <h3 id="fact-modal-claim" class="modal-claim-title">Claim Title</h3>
       <div class="modal-body">
-        <p><strong>Publisher Source:</strong> <span id="fact-modal-publisher">-</span></p>
-        <p><strong>Rating Verdict:</strong> <span id="fact-modal-rating" class="modal-rating-text">-</span></p>
-        <p id="fact-modal-desc" class="modal-desc">-</p>
+        <input type="text" id="modal-stock-filter" placeholder="Search by symbol, name, or asset class..." oninput="filterStockDirectory()">
+        <div class="stock-dir-list" id="stocks-directory-list"></div>
       </div>
-      <div class="modal-footer"><button onclick="closeFactModal()" class="btn-primary">Dismiss</button></div>
     </div>
   </div>
 
-  <!-- Guided Tour Modal -->
-  <div id="tour-modal" class="tour-modal-overlay hidden">
-    <div class="tour-card">
-      <div class="tour-header">
-        <span id="tour-step-number">Step 1 of 11</span>
-        <button onclick="closeTour()" class="tour-close-btn">&times;</button>
+  <div id="broker-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚡ Direct Broker Router & Bracket Risk Control</h3>
+        <button onclick="closeBrokerModal()" class="close-btn">&times;</button>
       </div>
-      <h3 id="tour-title">Welcome to the Guided Tour</h3>
-      <p id="tour-description">Learn how to navigate your Multi-Asset Intelligence Platform.</p>
-      <div class="tour-footer">
-        <button id="tour-prev-btn" onclick="prevTourStep()" class="btn-secondary">Previous</button>
-        <button id="tour-next-btn" onclick="nextTourStep()" class="btn-primary">Next</button>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Broker Gateway:</label>
+          <select id="broker-select">
+            <option value="alpaca">Alpaca Paper Trading API</option>
+            <option value="simulated">Simulated Institutional Gateway</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ticker:</label>
+            <input type="text" id="broker-ticker-input" readonly>
+          </div>
+          <div class="form-group">
+            <label>Side:</label>
+            <select id="broker-side-select">
+              <option value="buy">BUY (Long)</option>
+              <option value="sell">SELL (Short)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity / Units:</label>
+            <input type="number" id="broker-qty-input" value="10" min="0.1" step="any">
+          </div>
+          <div class="form-group">
+            <label>Order Type:</label>
+            <select id="broker-type-select" onchange="toggleLimitPriceField()">
+              <option value="market">Market Order</option>
+              <option value="limit">Limit Order</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group hidden" id="limit-price-group">
+          <label>Limit Price ($):</label>
+          <input type="number" id="broker-limit-input" step="0.01" placeholder="Enter target limit execution price">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Stop-Loss ($):</label>
+            <input type="number" id="broker-sl-input" step="0.01" placeholder="Risk protection floor">
+          </div>
+          <div class="form-group">
+            <label>Take-Profit ($):</label>
+            <input type="number" id="broker-tp-input" step="0.01" placeholder="Profit target ceiling">
+          </div>
+        </div>
+        <button onclick="submitBrokerOrder()" class="btn-primary" style="width: 100%; margin-top: 10px;">Execute Order via API</button>
+        <div id="broker-response-box" class="hidden" style="margin-top: 12px; font-size: 13px; padding: 12px; background: var(--bg-surface-alt); border-radius: 6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="portfolio-modal" class="modal hidden">
+    <div class="modal-content portfolio-modal-content">
+      <div class="modal-header">
+        <h3>📊 Portfolio & Multi-Asset Watchlist</h3>
+        <button onclick="closePortfolioModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-tabs">
+        <button onclick="switchPortfolioTab('watchlist', this)" class="port-tab-btn active">Watchlist</button>
+        <button onclick="switchPortfolioTab('positions', this)" class="port-tab-btn">Broker Positions & Cash</button>
+      </div>
+      <div class="modal-body">
+        <div id="tab-watchlist">
+          <div id="watchlist-items-container"></div>
+        </div>
+        <div id="tab-positions" class="hidden">
+          <div class="port-summary-box">
+            <div>Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
+            <div>Buying Power: <strong id="port-cash-val">$0.00</strong></div>
+          </div>
+          <div id="positions-items-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="fact-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔍 Rumor & Fact-Check Audit</h3>
+        <button onclick="closeFactModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h4 id="fact-modal-claim" style="font-weight: 500; margin-bottom: 10px; font-size: 15px;"></h4>
+        <p>Publisher: <strong id="fact-modal-publisher"></strong></p>
+        <p>Rating: <strong id="fact-modal-rating" style="color: var(--accent-red);"></strong></p>
+        <p id="fact-modal-desc" style="font-size: 13px; color: var(--text-muted); margin-top: 10px;"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="tour-modal" class="modal hidden">
+    <div class="modal-content tour-modal-content">
+      <div class="modal-header">
+        <h3 id="tour-title">Platform Guided Tour</h3>
+        <button onclick="closeTour()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="tour-description" style="font-size: 14px; line-height: 1.5; margin-bottom: 16px;"></p>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span id="tour-step-number" style="font-size: 12px; color: var(--text-muted);">Step 1 of 11</span>
+          <div style="display: flex; gap: 8px;">
+            <button onclick="prevTourStep()" id="tour-prev-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 13px;">Previous</button>
+            <button onclick="nextTourStep()" id="tour-next-btn" class="btn-primary" style="padding: 6px 12px; font-size: 13px;">Next</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
