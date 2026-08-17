@@ -18,15 +18,14 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
 import joblib
-from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from tensorflow.keras.models import load_model  # type: ignore
 
 from ML.feature_engineering.build_features import engineer_features  
 from data_pipeline.news_data.fetcher import fetch_company_news 
-from fake_news_detection.collectors.fetcher import search_fact_check_claims 
+from recommendation_engine.engine import compute_hybrid_recommendation
 
-app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.4.0")
+app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.8.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,7 +46,6 @@ try:
 except Exception as e:
     print(f"⚠️ XGBoost/HMM load warning: {e}")
 
-# Load Best Benchmarked Hybrid Neural Network Model (GRU/LSTM)
 hybrid_nn_model = None
 active_hybrid_architecture = "Empirically Benchmarked GRU/LSTM Hybrid"
 try:
@@ -68,7 +66,7 @@ def fetch_fmp_sentiment_pipeline(ticker: str) -> dict:
     if fmp_key:
         try:
             url = f"https://financialmodelingprep.com/api/v4/historical/social-sentiment?symbol={ticker}&page=0&apikey={fmp_key}"
-            response = requests.get(url, timeout=8)
+            response = requests.get(url, timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 if data and isinstance(data, list) and len(data) > 0:
@@ -162,50 +160,12 @@ class OrderRequest(BaseModel):
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
 
-def compute_stock_recommendation(rsi: float, regime_id: int, sentiment_score: float):
-    score = 0
-    reasons = []
-    if rsi < 30:
-        score += 2
-        reasons.append(f"RSI ({rsi:.1f}) indicates oversold momentum (Bullish Reversal Potential).")
-    elif rsi > 70:
-        score -= 2
-        reasons.append(f"RSI ({rsi:.1f}) indicates overbought momentum (Bearish Exhaustion Risk).")
-    else:
-        score += 1
-        reasons.append(f"RSI ({rsi:.1f}) is within a balanced neutral range.")
-
-    if regime_id == 0:
-        score += 2
-        reasons.append("HMM Regime detected Low Volatility Bullish market condition.")
-    elif regime_id == 1:
-        score += 0
-        reasons.append("HMM Regime detected Sideways/Neutral market condition.")
-    else:
-        score -= 2
-        reasons.append("HMM Regime detected High Volatility Bearish market condition.")
-
-    if sentiment_score > 0.7:
-        score += 2
-        reasons.append(f"FMP Sentiment Pipeline confirms strong social/transcript bullishness ({sentiment_score*100:.0f}%).")
-    elif sentiment_score < 0.4:
-        score -= 2
-        reasons.append(f"FMP Sentiment Pipeline detects negative investor sentiment ({sentiment_score*100:.0f}%).")
-    else:
-        score += 1
-        reasons.append("FMP Sentiment Pipeline indicates balanced investor mood.")
-
-    verdict = "Strong Buy" if score >= 4 else ("Hold / Accumulate" if score >= 1 else "Caution / Reduce")
-    badge_color = "sage" if score >= 4 else ("yellow" if score >= 1 else "rose")
-
-    return {"verdict": verdict, "score": score, "badge_color": badge_color, "reasons": reasons}
-
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "version": "2.4.0", "active_hybrid_architecture": active_hybrid_architecture}
+    return {"status": "healthy", "version": "2.8.0", "active_hybrid_architecture": active_hybrid_architecture}
 
 @app.get("/api/stock/analyze")
-def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
+def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str = "balanced"):
     try:
         clean_ticker = ticker.upper().strip()
         asset_info = ASSET_DIRECTORY.get(clean_ticker, {"name": clean_ticker, "class": "Equities", "base": 150.0})
@@ -214,10 +174,9 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
         df = None
         try:
             df = engineer_features(ticker="AAPL" if asset_info["class"] != "Equities" else clean_ticker)
-        except Exception as fe_err:
-            print(f"⚠️ Feature engineering pipeline warning for {clean_ticker}: {fe_err}")
+        except Exception:
+            pass
 
-        # Fallback robust DataFrame builder if pipeline fails or returns empty
         if df is None or df.empty:
             dates = pd.date_range(end=pd.Timestamp.today(), periods=120, freq='B')
             base_p = asset_info["base"]
@@ -246,12 +205,6 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
                 regime = int(hmm_model.predict(hmm_feat)[0])
             except Exception:
                 regime = 0
-        
-        regime_labels = {
-            0: {"label": "Low Volatility / Bullish", "color": "sage", "status": "Stable"},
-            1: {"label": "Neutral / Sideways", "color": "yellow", "status": "Moderate"},
-            2: {"label": "High Volatility / Bearish", "color": "rose", "status": "Caution"}
-        }
 
         feature_cols = ['Close', 'VIX_Close', 'Log_Return', 'RSI_14', 'MACD', 'SMA_Ratio', 'BB_Lower', 'BB_Upper']
         for col in feature_cols:
@@ -270,7 +223,6 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
             pred_mid, base_lower, base_upper = 0.005, -0.01, 0.025
 
         weighted_pred_mid = pred_mid * sentiment_data["weight_adjustment_factor"]
-
         scale_factor = confidence / 90.0
         pred_lower = weighted_pred_mid - (weighted_pred_mid - base_lower) * scale_factor
         pred_upper = weighted_pred_mid + (base_upper - weighted_pred_mid) * scale_factor
@@ -279,7 +231,8 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
         pred_price_lower = current_price * (1 + pred_lower)
         pred_price_upper = current_price * (1 + pred_upper)
 
-        rec_data = compute_stock_recommendation(rsi_val, regime, sentiment_data["sentiment_score"])
+        # Utilize modular recommendation engine
+        hybrid_rec = compute_hybrid_recommendation(clean_ticker, risk_profile, rsi_val, regime, sentiment_data["sentiment_score"], weighted_pred_mid)
         peers = SECTOR_PEERS.get(clean_ticker, ["MSFT", "NVDA", "GOOGL", "AMZN"])
         
         if 'Date' not in df.columns:
@@ -307,6 +260,7 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
             "asset_class": asset_info["class"],
             "current_price": round(current_price, 2),
             "confidence_level": confidence,
+            "risk_profile": risk_profile,
             "predictions": {
                 "next_return_pct": round(weighted_pred_mid * 100, 2),
                 "target_price": round(pred_price_mid, 2),
@@ -315,8 +269,12 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90):
                 "hybrid_architecture": active_hybrid_architecture
             },
             "sentiment_analysis": sentiment_data,
-            "recommendation": rec_data,
-            "market_regime": regime_labels.get(regime, regime_labels[0]),
+            "recommendation": hybrid_rec,
+            "market_regime": {
+                0: {"label": "Low Volatility / Bullish", "color": "sage", "status": "Stable"},
+                1: {"label": "Neutral / Sideways", "color": "yellow", "status": "Moderate"},
+                2: {"label": "High Volatility / Bearish", "color": "rose", "status": "Caution"}
+            }.get(regime, {"label": "Low Volatility / Bullish", "color": "sage", "status": "Stable"}),
             "technical_indicators": {
                 "rsi_14": round(rsi_val, 2),
                 "vix": round(float(latest_row['VIX_Close'].values[0]), 2) if 'VIX_Close' in latest_row.columns else 16.5,

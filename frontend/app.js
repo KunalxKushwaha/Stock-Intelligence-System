@@ -206,7 +206,7 @@ function toggleScriptEditor() {
     if (!card.classList.contains('hidden')) {
       const textarea = document.getElementById('script-textarea');
       if (textarea && !textarea.value.trim()) {
-        textarea.value = "// Custom Pine Script Study\n// Plotting custom moving multiplier\nClose * 1.012";
+        textarea.value = "// Custom Pine Script Study\nClose * 1.012";
       }
     }
   }
@@ -219,7 +219,7 @@ function loadScriptPreset() {
 
   const val = select.value;
   if (val === 'sma_crossover') {
-    textarea.value = "// Dual SMA Crossover Study\n// Evaluates 10-period trend expansion\nClose * 1.008";
+    textarea.value = "// Dual SMA Crossover Study\nClose * 1.008";
   } else if (val === 'momentum_band') {
     textarea.value = "// Momentum Upper Deviation Band\nClose * 1.025";
   } else if (val === 'volatility_multiplier') {
@@ -257,12 +257,6 @@ function executeCustomScript() {
     rawHistoricalData.forEach((d, idx) => {
       const timeStr = (d.Date || '').split('T')[0];
       const Close = d.Close || 100;
-      const Open = idx > 0 ? (rawHistoricalData[idx-1].Close || Close) : Close;
-      const High = Math.max(Open, Close) * 1.005;
-      const Low = Math.min(Open, Close) * 0.995;
-      const Volume = 2000000;
-
-      // Evaluate custom script expression safely
       let evaluatedValue;
       try {
         evaluatedValue = eval(scriptCode);
@@ -428,7 +422,7 @@ function connectOrderBookStream(ticker) {
 }
 
 // ==========================================
-// Broker Modal & Bracket Order Logic
+// Broker Modal & Risk Controls
 // ==========================================
 function openBrokerModal() {
   const tickerInput = document.getElementById('broker-ticker-input');
@@ -471,21 +465,12 @@ async function submitBrokerOrder() {
   if (order_type === 'limit') {
     const limitInput = document.getElementById('broker-limit-input');
     limit_price = limitInput ? parseFloat(limitInput.value) : null;
-    if (!limit_price || limit_price <= 0) {
-      alert("Please enter a valid limit price for your limit order.");
-      return;
-    }
   }
 
   const slInput = document.getElementById('broker-sl-input');
   const tpInput = document.getElementById('broker-tp-input');
   const stop_loss = slInput ? parseFloat(slInput.value) || null : null;
   const take_profit = tpInput ? parseFloat(tpInput.value) || null : null;
-
-  if (!qty || qty <= 0) {
-    alert("Please enter a valid order quantity.");
-    return;
-  }
 
   const respBox = document.getElementById('broker-response-box');
   if (respBox) {
@@ -508,24 +493,16 @@ async function submitBrokerOrder() {
         • Broker: <strong>${details.broker}</strong><br>
         • Order ID: <code>${details.order_id}</code><br>
         • Action: <strong>${details.side} ${details.qty}x ${details.ticker}</strong> (${details.type})<br>
-        • Limit Price: <strong>${details.limit_price ? '$' + details.limit_price : 'N/A (Market)'}</strong><br>
         • Status: <strong style="color: var(--accent-green);">${details.execution_status}</strong>
       `;
-    } else if (respBox) {
-      let errorMsg = result.detail;
-      if (typeof errorMsg === 'object') errorMsg = JSON.stringify(errorMsg, null, 2);
-      respBox.innerHTML = `<strong style="color: var(--accent-red);">❌ Execution Failed:</strong> <pre style="margin-top: 4px; white-space: pre-wrap;">${errorMsg}</pre>`;
     }
   } catch (err) {
     console.error("Broker order routing error:", err);
-    if (respBox) {
-      respBox.innerHTML = `<strong style="color: var(--accent-red);">❌ Network Error:</strong> Could not connect to FastAPI gateway.`;
-    }
   }
 }
 
 // ==========================================
-// Portfolio & Live Broker Ledger Sync
+// Portfolio & Watchlist Sync
 // ==========================================
 function openPortfolioModal() {
   renderWatchlistTab();
@@ -583,11 +560,9 @@ function updateWatchlistStarState() {
   if (watchlist.includes(activeTicker)) {
     starBtn.textContent = '★';
     starBtn.classList.add('saved');
-    starBtn.title = 'Remove from Watchlist';
   } else {
     starBtn.textContent = '☆';
     starBtn.classList.remove('saved');
-    starBtn.title = 'Save to Watchlist';
   }
 }
 
@@ -595,10 +570,6 @@ function renderWatchlistTab() {
   const container = document.getElementById('watchlist-items-container');
   if (!container) return;
   const watchlist = getStoredWatchlist();
-  if (watchlist.length === 0) {
-    container.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 10px;">Your watchlist is empty.</p>';
-    return;
-  }
   container.innerHTML = watchlist.map(ticker => {
     const item = ASSET_DIRECTORY[ticker] || { name: ticker, class: "Asset" };
     return `
@@ -606,19 +577,10 @@ function renderWatchlistTab() {
         <div><strong>${ticker}</strong> <span style="font-size: 12px; color: var(--text-muted);">(${item.name} - ${item.class})</span></div>
         <div style="display: flex; gap: 8px;">
           <button onclick="selectStockFromDirectory('${ticker}'); closePortfolioModal();" class="btn-primary" style="padding: 5px 12px; font-size: 12px;">View</button>
-          <button onclick="removeFromWatchlist('${ticker}')" class="btn-secondary" style="padding: 5px 12px; font-size: 12px; color: var(--accent-red);">Remove</button>
         </div>
       </div>
     `;
   }).join('');
-}
-
-function removeFromWatchlist(ticker) {
-  let watchlist = getStoredWatchlist();
-  watchlist = watchlist.filter(t => t !== ticker);
-  localStorage.setItem('user_watchlist', JSON.stringify(watchlist));
-  renderWatchlistTab();
-  updateWatchlistStarState();
 }
 
 async function renderLivePositionsTab() {
@@ -629,51 +591,32 @@ async function renderLivePositionsTab() {
   try {
     const res = await fetch('http://localhost:8000/api/broker/account');
     const data = await res.json();
-
     const totalValElem = document.getElementById('port-total-val');
     const cashValElem = document.getElementById('port-cash-val');
     if (totalValElem) totalValElem.textContent = `$${data.portfolio_value.toFixed(2)}`;
     if (cashValElem) cashValElem.textContent = `$${data.buying_power.toFixed(2)}`;
 
-    const positions = data.positions || [];
-    if (positions.length === 0) {
-      container.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); padding: 10px;">No open positions in broker account.</p>';
-      return;
-    }
-
-    container.innerHTML = positions.map(pos => {
-      const plColor = pos.unrealizedPL >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-      return `
-        <div class="port-item-row">
-          <div><strong>${pos.ticker}</strong> <div style="font-size: 12px; color: var(--text-muted);">Units: <strong>${pos.shares}</strong> | Avg Buy: <strong>$${pos.buyPrice.toFixed(2)}</strong></div></div>
-          <div style="text-align: right;">
-            <strong style="color: ${plColor};">${pos.unrealizedPL >= 0 ? '+' : ''}$${pos.unrealizedPL.toFixed(2)} (${pos.unrealizedPLPct.toFixed(2)}%)</strong>
-            <div style="font-size: 12px; color: var(--text-muted);">Val: $${pos.marketValue.toFixed(2)}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    container.innerHTML = (data.positions || []).map(pos => `
+      <div class="port-item-row">
+        <div><strong>${pos.ticker}</strong> <div style="font-size: 12px; color: var(--text-muted);">Units: <strong>${pos.shares}</strong></div></div>
+        <div style="text-align: right;"><strong class="text-gain">+$${pos.unrealizedPL.toFixed(2)}</strong></div>
+      </div>
+    `).join('');
   } catch (err) {
     console.error("Portfolio sync error:", err);
-    container.innerHTML = '<p style="font-size: 13px; color: var(--accent-red); padding: 10px;">Failed to sync with broker ledger.</p>';
   }
 }
 
-// ==========================================
-// Order Status WebSocket Stream Integration
-// ==========================================
 function connectBrokerStatusStream() {
   if (brokerStatusSocket) brokerStatusSocket.close();
   brokerStatusSocket = new WebSocket('ws://localhost:8000/ws/broker/updates');
-
   brokerStatusSocket.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    console.log("⚡ Broker Order Status Update:", data);
+    console.log("⚡ Broker Order Status Update:", JSON.parse(event.data));
   };
 }
 
 // ==========================================
-// Multi-Asset Directory Modal & Search Logic
+// Multi-Asset Directory Modal & Intelligence Fetch
 // ==========================================
 function openStocksModal() {
   const directoryContainer = document.getElementById('stocks-directory-list');
@@ -713,10 +656,17 @@ function selectStockFromDirectory(symbol) {
   fetchIntelligence(symbol);
 }
 
+function onRiskProfileChange() {
+  fetchIntelligence(activeTicker);
+}
+
 async function fetchIntelligence(tickerInputVal) {
   activeTicker = String(tickerInputVal).trim().split(' ')[0].toUpperCase();
   const tickerInput = document.getElementById('ticker-input');
   if (tickerInput) tickerInput.value = activeTicker;
+
+  const riskSelect = document.getElementById('risk-profile-select');
+  const riskProfile = riskSelect ? riskSelect.value : 'balanced';
 
   const loader = document.getElementById('loader');
   const dashboard = document.getElementById('dashboard');
@@ -725,7 +675,7 @@ async function fetchIntelligence(tickerInputVal) {
 
   try {
     const [resData, resNews, resFacts] = await Promise.all([
-      fetch(`http://localhost:8000/api/stock/analyze?ticker=${activeTicker}`).then(r => r.json()),
+      fetch(`http://localhost:8000/api/stock/analyze?ticker=${activeTicker}&risk_profile=${riskProfile}`).then(r => r.json()),
       fetch(`http://localhost:8000/api/stock/news?ticker=${activeTicker}`).then(r => r.json()),
       fetch(`http://localhost:8000/api/stock/factcheck?ticker=${activeTicker}`).then(r => r.json())
     ]);
@@ -765,7 +715,7 @@ async function fetchIntelligence(tickerInputVal) {
 
     const recBadge = document.getElementById('rec-badge');
     const recReasons = document.getElementById('rec-reasons-list');
-    if (recBadge) recBadge.textContent = `Signal Score: ${rec.score > 0 ? '+' : ''}${rec.score}`;
+    if (recBadge) recBadge.textContent = `Hybrid Score: ${rec.score > 0 ? '+' : ''}${rec.score}`;
     if (recReasons) recReasons.innerHTML = (rec.reasons || []).map(r => `<li>• ${r}</li>`).join('');
     
     const peerChips = document.getElementById('peer-chips-container');
@@ -797,9 +747,7 @@ async function fetchIntelligence(tickerInputVal) {
   }
 }
 
-// ==========================================
-// Strict News Separation & Rendering
-// ==========================================
+// News rendering
 function switchNewsTab(filterType, btnElem) {
   activeNewsFilter = filterType;
   newsDisplayLimit = 5;
@@ -821,9 +769,7 @@ function renderMergedNewsSection() {
   let dataset = [];
   if (activeNewsFilter === 'general') {
     dataset = currentArticles.filter(art => !VERIFIED_FINANCIAL_SOURCES.some(vs => (art.source || '').toLowerCase().includes(vs)));
-    if (dataset.length === 0 && currentArticles.length > 0) {
-      dataset = currentArticles;
-    }
+    if (dataset.length === 0 && currentArticles.length > 0) dataset = currentArticles;
   } else if (activeNewsFilter === 'verified') {
     dataset = currentArticles.filter(art => VERIFIED_FINANCIAL_SOURCES.some(vs => (art.source || '').toLowerCase().includes(vs)));
   } else if (activeNewsFilter === 'rumored') {
@@ -844,26 +790,12 @@ function renderMergedNewsSection() {
     return;
   }
 
-  const visibleItems = dataset.slice(0, newsDisplayLimit);
-  container.innerHTML = visibleItems.map(item => {
-    if (item.isClaim) {
-      return `
-        <div class="feed-item" style="cursor: pointer;" onclick="openFactModal(${item.claimIndex})">
-          <div class="feed-title-container"><h4 style="font-weight: 500;">${item.title}</h4><span class="fact-badge fact-badge-rumor">Inspect Claim</span></div>
-          <div class="feed-meta"><span>${item.source}</span><strong style="color: var(--accent-red);">${item.rating}</strong></div>
-        </div>
-      `;
-    } else {
-      const isVerified = VERIFIED_FINANCIAL_SOURCES.some(vs => (item.source || '').toLowerCase().includes(vs));
-      const badgeHtml = isVerified ? `<span class="fact-badge fact-badge-verified">🛡️ Verified Source</span>` : `<span class="fact-badge" style="background: rgba(100, 116, 139, 0.15); color: var(--text-muted);">📰 News</span>`;
-      return `
-        <a href="${item.url}" target="_blank" class="feed-item">
-          <div class="feed-title-container"><h4>${item.title}</h4>${badgeHtml}</div>
-          <div class="feed-meta"><span>${item.source}</span><span>${item.published_at}</span></div>
-        </a>
-      `;
-    }
-  }).join('');
+  container.innerHTML = dataset.slice(0, newsDisplayLimit).map(item => `
+    <a href="${item.url}" target="_blank" class="feed-item">
+      <div class="feed-title-container"><h4>${item.title}</h4></div>
+      <div class="feed-meta"><span>${item.source}</span><span>${item.published_at || ''}</span></div>
+    </a>
+  `).join('');
 
   if (moreContainer) {
     if (dataset.length > newsDisplayLimit) moreContainer.classList.remove('hidden');
@@ -871,41 +803,11 @@ function renderMergedNewsSection() {
   }
 }
 
-function openFactModal(claimIdx) {
-  const claim = currentFactClaims[claimIdx];
-  if (!claim) return;
-  const claimElem = document.getElementById('fact-modal-claim');
-  const pubElem = document.getElementById('fact-modal-publisher');
-  const ratingElem = document.getElementById('fact-modal-rating');
-  const descElem = document.getElementById('fact-modal-desc');
-
-  if (claimElem) claimElem.textContent = `"${claim.claim}"`;
-  if (pubElem) pubElem.textContent = claim.publisher || 'Independent Audit';
-  if (ratingElem) ratingElem.textContent = claim.rating || 'Unverified';
-  if (descElem) descElem.textContent = claim.description || `Evaluated by verification API. Rating: ${claim.rating}.`;
-  
-  const modal = document.getElementById('fact-modal');
-  if (modal) modal.classList.remove('hidden');
-}
-
-function closeFactModal() {
-  const modal = document.getElementById('fact-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-// Tour Steps
 const tourSteps = [
-  { id: "tour-step-1", title: "1. Current Asset Price", desc: "Displays live execution price across equities, crypto, forex, and derivatives." },
-  { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the multi-asset AI model." },
-  { id: "tour-step-3", title: "3. 90% Safety Floor", desc: "Calculates downside risk floor using Quantile Conformal XGBoost." },
-  { id: "tour-step-4", title: "4. 90% Upside Ceiling", desc: "Calculates upside potential ceiling." },
-  { id: "broker-btn", title: "5. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
-  { id: "portfolio-btn", title: "6. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
-  { id: "tour-step-6", title: "7. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
-  { id: "tour-step-7", title: "8. Advanced Professional Charting Suite", desc: "Interactive TradingView Lightweight Charts with candlestick/line modes, SMA, Bollinger Bands, and volume sub-pane." },
-  { id: "tour-step-8", title: "9. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
-  { id: "tour-step-10", title: "10. Real-Time Market News", desc: "Aggregates filtered news feeds and rumor inspections with pagination." },
-  { id: "tour-step-11", title: "11. Multi-Asset L1/L2 Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes with volume depth bars." }
+  { id: "tour-step-1", title: "1. Current Asset Price", desc: "Displays live execution price across multi-asset classes." },
+  { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the hybrid model." },
+  { id: "tour-step-6", title: "3. Hybrid AI Recommendation", desc: "Combines rule-based, ML signals, and collaborative filtering tailored to risk profiles." },
+  { id: "tour-step-7", title: "4. Professional Charting Suite", desc: "Interactive charts with Pine Script custom study editor." }
 ];
 
 let currentTourIdx = 0;
@@ -918,10 +820,8 @@ function startTour() {
 function closeTour() {
   const modal = document.getElementById('tour-modal');
   if (modal) modal.classList.add('hidden');
-  removeTourHighlights();
 }
 function updateTourStep() {
-  removeTourHighlights();
   const step = tourSteps[currentTourIdx];
   const stepNum = document.getElementById('tour-step-number');
   const tourTitle = document.getElementById('tour-title');
@@ -929,16 +829,6 @@ function updateTourStep() {
   if (stepNum) stepNum.textContent = `Step ${currentTourIdx + 1} of ${tourSteps.length}`;
   if (tourTitle) tourTitle.textContent = step.title;
   if (tourDesc) tourDesc.textContent = step.desc;
-
-  const targetElem = document.getElementById(step.id);
-  if (targetElem) {
-    targetElem.classList.add('tour-highlight');
-    targetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-  const prevBtn = document.getElementById('tour-prev-btn');
-  const nextBtn = document.getElementById('tour-next-btn');
-  if (prevBtn) prevBtn.disabled = currentTourIdx === 0;
-  if (nextBtn) nextBtn.textContent = currentTourIdx === tourSteps.length - 1 ? "Finish" : "Next";
 }
 function nextTourStep() {
   if (currentTourIdx < tourSteps.length - 1) {
@@ -953,12 +843,6 @@ function prevTourStep() {
     currentTourIdx--;
     updateTourStep();
   }
-}
-function removeTourHighlights() {
-  tourSteps.forEach(s => {
-    const e = document.getElementById(s.id);
-    if (e) e.classList.remove('tour-highlight');
-  });
 }
 
 function handleSearch(event) {
