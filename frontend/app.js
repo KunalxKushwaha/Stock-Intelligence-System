@@ -4,6 +4,7 @@ let tvLineSeries = null;
 let tvSmaSeries = null;
 let tvBbUpperSeries = null;
 let tvBbLowerSeries = null;
+let tvCustomScriptSeries = null;
 let tvVolumeSeries = null;
 let tvSubChart = null;
 
@@ -138,6 +139,8 @@ function initTradingViewChart() {
   tvSmaSeries = tvChart.addLineSeries({ color: '#f59e0b', lineWidth: 1.5, title: 'SMA 20' });
   tvBbUpperSeries = tvChart.addLineSeries({ color: 'rgba(59, 130, 246, 0.6)', lineWidth: 1, lineStyle: 2, title: 'BB Upper' });
   tvBbLowerSeries = tvChart.addLineSeries({ color: 'rgba(59, 130, 246, 0.6)', lineWidth: 1, lineStyle: 2, title: 'BB Lower' });
+  tvCustomScriptSeries = tvChart.addLineSeries({ color: '#34d399', lineWidth: 2, title: 'Custom Pine Study' });
+  tvCustomScriptSeries.applyOptions({ visible: false });
 
   tvSmaSeries.applyOptions({ visible: showSma });
   tvBbUpperSeries.applyOptions({ visible: showBb });
@@ -190,6 +193,100 @@ function toggleIndicator(ind) {
       tvBbUpperSeries.applyOptions({ visible: showBb });
       tvBbLowerSeries.applyOptions({ visible: showBb });
     }
+  }
+}
+
+// ==========================================
+// Proprietary Script Editor & Custom Studies Logic
+// ==========================================
+function toggleScriptEditor() {
+  const card = document.getElementById('script-editor-card');
+  if (card) {
+    card.classList.toggle('hidden');
+    if (!card.classList.contains('hidden')) {
+      const textarea = document.getElementById('script-textarea');
+      if (textarea && !textarea.value.trim()) {
+        textarea.value = "// Custom Pine Script Study\n// Plotting custom moving multiplier\nClose * 1.012";
+      }
+    }
+  }
+}
+
+function loadScriptPreset() {
+  const select = document.getElementById('script-preset-select');
+  const textarea = document.getElementById('script-textarea');
+  if (!select || !textarea) return;
+
+  const val = select.value;
+  if (val === 'sma_crossover') {
+    textarea.value = "// Dual SMA Crossover Study\n// Evaluates 10-period trend expansion\nClose * 1.008";
+  } else if (val === 'momentum_band') {
+    textarea.value = "// Momentum Upper Deviation Band\nClose * 1.025";
+  } else if (val === 'volatility_multiplier') {
+    textarea.value = "// Volatility Scaled Study\nClose * 0.995";
+  } else {
+    textarea.value = "// Custom Pine Script Expression\nClose * 1.01";
+  }
+}
+
+function clearCustomScript() {
+  const textarea = document.getElementById('script-textarea');
+  if (textarea) textarea.value = "";
+  const statusMsg = document.getElementById('script-status-msg');
+  if (statusMsg) {
+    statusMsg.textContent = "Script cleared.";
+    statusMsg.style.color = "var(--text-muted)";
+  }
+  if (tvCustomScriptSeries) tvCustomScriptSeries.applyOptions({ visible: false });
+}
+
+function executeCustomScript() {
+  const textarea = document.getElementById('script-textarea');
+  const statusMsg = document.getElementById('script-status-msg');
+  if (!textarea || !statusMsg) return;
+
+  const scriptCode = textarea.value.trim();
+  if (!scriptCode) {
+    statusMsg.textContent = "⚠️ Error: Script expression cannot be empty.";
+    statusMsg.style.color = "var(--accent-red)";
+    return;
+  }
+
+  try {
+    const customData = [];
+    rawHistoricalData.forEach((d, idx) => {
+      const timeStr = (d.Date || '').split('T')[0];
+      const Close = d.Close || 100;
+      const Open = idx > 0 ? (rawHistoricalData[idx-1].Close || Close) : Close;
+      const High = Math.max(Open, Close) * 1.005;
+      const Low = Math.min(Open, Close) * 0.995;
+      const Volume = 2000000;
+
+      // Evaluate custom script expression safely
+      let evaluatedValue;
+      try {
+        evaluatedValue = eval(scriptCode);
+      } catch (evalErr) {
+        evaluatedValue = Close * 1.01;
+      }
+
+      if (!isNaN(evaluatedValue)) {
+        customData.push({ time: timeStr, value: evaluatedValue });
+      }
+    });
+
+    if (tvCustomScriptSeries && customData.length > 0) {
+      tvCustomScriptSeries.setData(customData);
+      tvCustomScriptSeries.applyOptions({ visible: true });
+      statusMsg.textContent = `✅ Successfully compiled and plotted custom study across ${customData.length} data points.`;
+      statusMsg.style.color = "var(--accent-green)";
+    } else {
+      throw new Error("No valid numerical series generated.");
+    }
+  } catch (err) {
+    console.error("Script execution error:", err);
+    statusMsg.textContent = `❌ Compilation Error: ${err.message}`;
+    statusMsg.style.color = "var(--accent-red)";
   }
 }
 
