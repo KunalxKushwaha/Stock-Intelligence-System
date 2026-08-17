@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Stock Intelligence & Multi-Asset Terminal</title>
-  <!-- TradingView Lightweight Charts Library CDN -->
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -14,7 +13,7 @@
   <header class="navbar">
     <div class="nav-brand">
       <span class="brand-icon">⚡</span>
-      <h1>AlphaTerminal <span class="badge-version">v2.5.0</span></h1>
+      <h1>AlphaTerminal <span class="badge-version">v2.7.0</span></h1>
     </div>
     
     <form class="search-form" onsubmit="handleSearch(event)">
@@ -89,7 +88,7 @@
     <!-- Harmonized Professional Terminal Grid -->
     <div class="dashboard-grid">
 
-      <!-- Left Column: Professional Charting Suite & Technicals (Aligned Height) -->
+      <!-- Left Column: Professional Charting Suite & Technicals -->
       <div class="left-column">
         
         <!-- Advanced Professional Charting Suite Card -->
@@ -97,10 +96,9 @@
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div>
               <h3 id="chart-title">AAPL Professional Charting Suite</h3>
-              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Powered by TradingView Lightweight Charts & Multi-Pane Technical Studies</p>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Powered by TradingView Lightweight Charts & Proprietary Scripting Environment</p>
             </div>
             
-            <!-- Professional Charting Toolbar Controls -->
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
               <div class="chart-mode-group" style="display: flex; background: var(--bg-surface-alt); border-radius: 6px; padding: 2px; border: 1px solid var(--border-color);">
                 <button onclick="setChartType('candlestick')" id="btn-type-candle" class="tf-btn active">Candles</button>
@@ -110,6 +108,7 @@
               <div class="chart-indicators-group" style="display: flex; gap: 6px;">
                 <button onclick="toggleIndicator('sma')" id="ind-sma-btn" class="tf-btn" title="Toggle 20-Period SMA">SMA</button>
                 <button onclick="toggleIndicator('bb')" id="ind-bb-btn" class="tf-btn" title="Toggle Bollinger Bands">Bollinger</button>
+                <button onclick="toggleScriptEditor()" id="ind-script-btn" class="tf-btn" title="Open Proprietary Script Editor" style="background: var(--accent-blue-soft); color: var(--accent-blue); border-color: var(--accent-blue);">⚡ Pine Script Editor</button>
               </div>
 
               <div class="timeframe-group" style="display: flex; gap: 4px;">
@@ -134,7 +133,40 @@
           </div>
         </section>
 
-        <!-- Technical Indicators & Regime Grid (Restored perfectly below chart) -->
+        <!-- Proprietary Script Editor Card -->
+        <section class="card hidden" id="script-editor-card" style="border: 1px solid var(--accent-blue); background: var(--bg-surface);">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">⚡</span>
+              <div>
+                <h3 style="color: var(--accent-blue);">Proprietary Script Editor (Pine Script Environment)</h3>
+                <p style="font-size: 11px; color: var(--text-muted);">Write custom user indicators and execute custom mathematical studies on price series.</p>
+              </div>
+            </div>
+            <button onclick="toggleScriptEditor()" class="close-btn" style="font-size: 18px;">&times;</button>
+          </div>
+          <div class="script-editor-body" style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <label style="font-size: 12px; color: var(--text-muted);">Preset Studies:</label>
+              <select id="script-preset-select" onchange="loadScriptPreset()" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                <option value="custom">Custom Expression</option>
+                <option value="sma_crossover">Dual SMA Crossover Signal</option>
+                <option value="momentum_band">Momentum Upper Deviation Band</option>
+                <option value="volatility_multiplier">Volatility Scaled Price Study</option>
+              </select>
+            </div>
+            <textarea id="script-textarea" rows="5" style="width: 100%; background: #07090e; color: #34d399; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: 'Courier New', Courier, monospace; font-size: 13px; outline: none; resize: vertical;" placeholder="// Write your custom study expression here..."></textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span id="script-status-msg" style="font-size: 11px; color: var(--text-muted);">Ready for compilation.</span>
+              <div style="display: flex; gap: 8px;">
+                <button onclick="clearCustomScript()" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">Clear</button>
+                <button onclick="executeCustomScript()" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">Compile & Plot Study</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Technical Indicators & Regime Grid -->
         <section class="card" id="tour-step-8">
           <div class="card-header">
             <h3>📊 Technical Indicators & Market Regime</h3>
@@ -160,29 +192,34 @@
 
       </div>
 
-      <!-- Right Column: AI Recommendations, News & Order Book Stream -->
+      <!-- Right Column: AI Recommendations (Hybrid), News & Order Book Stream -->
       <div class="right-column">
 
-        <!-- AI Recommendation Engine -->
+        <!-- Hybrid Recommendation Engine with Risk Profile Selector -->
         <section class="card" id="tour-step-6">
-          <div class="card-header">
-            <h3>🤖 AI Recommendation Engine</h3>
-            <span class="badge-signal" id="rec-badge">Signal Score: +4</span>
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <h3>🤖 Hybrid AI Recommendation</h3>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label style="font-size: 11px; color: var(--text-muted);">Risk Profile:</label>
+              <select id="risk-profile-select" onchange="onRiskProfileChange()" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); color: var(--text-main); padding: 3px 6px; border-radius: 4px; font-size: 11px;">
+                <option value="balanced">Balanced</option>
+                <option value="conservative">Conservative</option>
+                <option value="aggressive">Aggressive Growth</option>
+              </select>
+            </div>
           </div>
           <div class="rec-content">
-            <div class="verdict-display" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <div class="verdict-display" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
               <span class="verdict-label" style="font-size: 13px; color: var(--text-muted);">Action Verdict:</span>
               <strong id="rec-verdict-text" style="color: var(--accent-green); font-size: 18px;">Strong Buy</strong>
             </div>
             <ul class="reasons-list" id="rec-reasons-list" style="list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
-              <li>• RSI momentum indicates favorable upside expansion.</li>
-              <li>• HMM Regime detected Low Volatility Bullish market condition.</li>
-              <li>• FMP Sentiment Pipeline confirms strong social/transcript bullishness.</li>
+              <li>• Combining Rule-Based, ML, and Collaborative Filtering signals...</li>
             </ul>
           </div>
         </section>
 
-        <!-- Real-time Market News & Fake News Detection -->
+        <!-- Real-time Market News -->
         <section class="card" id="tour-step-10">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h3>📰 Real-time Market News</h3>
