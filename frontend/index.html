@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +13,7 @@
   <header class="navbar">
     <div class="nav-brand">
       <span class="brand-icon">⚡</span>
-      <h1>AlphaTerminal <span class="badge-version">v2.7.0</span></h1>
+      <h1>AlphaTerminal <span class="badge-version">v2.9.1</span></h1>
     </div>
     
     <form class="search-form" onsubmit="handleSearch(event)">
@@ -25,11 +25,12 @@
     </form>
 
     <div class="nav-actions">
-      <button onclick="openStocksModal()" class="btn-secondary">📂 Asset Directory</button>
+      <button onclick="openStocksModal()" class="btn-secondary" id="tour-asset-dir">📂 Asset Directory</button>
+      <button onclick="openBacktestModal()" class="btn-secondary" id="tour-backtest">📈 Backtest</button>
       <button onclick="openBrokerModal()" class="btn-secondary" id="broker-btn">⚡ Broker Router</button>
       <button onclick="openPortfolioModal()" class="btn-secondary" id="portfolio-btn">📊 Portfolio Sync</button>
       <button onclick="startTour()" class="btn-secondary">🎓 Tour</button>
-      <button onclick="toggleTheme()" class="btn-secondary" id="theme-btn">☀️ Light</button>
+      <button onclick="toggleTheme()" class="btn-secondary" id="theme-btn">🌙 Dark</button>
     </div>
   </header>
 
@@ -91,7 +92,6 @@
       <!-- Left Column: Professional Charting Suite & Technicals -->
       <div class="left-column">
         
-        <!-- Advanced Professional Charting Suite Card -->
         <section class="card charting-suite-card" id="tour-step-7">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div>
@@ -108,7 +108,7 @@
               <div class="chart-indicators-group" style="display: flex; gap: 6px;">
                 <button onclick="toggleIndicator('sma')" id="ind-sma-btn" class="tf-btn" title="Toggle 20-Period SMA">SMA</button>
                 <button onclick="toggleIndicator('bb')" id="ind-bb-btn" class="tf-btn" title="Toggle Bollinger Bands">Bollinger</button>
-                <button onclick="toggleScriptEditor()" id="ind-script-btn" class="tf-btn" title="Open Proprietary Script Editor" style="background: var(--accent-blue-soft); color: var(--accent-blue); border-color: var(--accent-blue);">⚡ Pine Script Editor</button>
+                <button onclick="toggleScriptEditor()" id="ind-script-btn" class="tf-btn" title="Open Proprietary Script Editor">⚡ Pine Script</button>
               </div>
 
               <div class="timeframe-group" style="display: flex; gap: 4px;">
@@ -121,12 +121,10 @@
             </div>
           </div>
 
-          <!-- TradingView Advanced Chart Container -->
           <div class="chart-container-wrapper" style="position: relative; width: 100%; height: 480px; margin-top: 12px;">
             <div id="tradingview-chart-container" style="width: 100%; height: 100%;"></div>
           </div>
 
-          <!-- Secondary Pane: Volume & Sub-Indicator Pane -->
           <div class="sub-chart-pane-wrapper" style="position: relative; width: 100%; height: 120px; margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 8px;">
             <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">VOLUME & MOMENTUM PANE</div>
             <div id="tradingview-subchart-container" style="width: 100%; height: 100px;"></div>
@@ -152,10 +150,9 @@
                 <option value="custom">Custom Expression</option>
                 <option value="sma_crossover">Dual SMA Crossover Signal</option>
                 <option value="momentum_band">Momentum Upper Deviation Band</option>
-                <option value="volatility_multiplier">Volatility Scaled Price Study</option>
               </select>
             </div>
-            <textarea id="script-textarea" rows="5" style="width: 100%; background: #07090e; color: #34d399; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: 'Courier New', Courier, monospace; font-size: 13px; outline: none; resize: vertical;" placeholder="// Write your custom study expression here..."></textarea>
+            <textarea id="script-textarea" rows="4" style="width: 100%; background: var(--bg-main); color: var(--accent-green); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: 'Courier New', Courier, monospace; font-size: 13px; outline: none; resize: vertical;" placeholder="// Write your custom study expression here..."></textarea>
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span id="script-status-msg" style="font-size: 11px; color: var(--text-muted);">Ready for compilation.</span>
               <div style="display: flex; gap: 8px;">
@@ -166,7 +163,6 @@
           </div>
         </section>
 
-        <!-- Technical Indicators & Regime Grid -->
         <section class="card" id="tour-step-8">
           <div class="card-header">
             <h3>📊 Technical Indicators & Market Regime</h3>
@@ -192,10 +188,9 @@
 
       </div>
 
-      <!-- Right Column: AI Recommendations (Hybrid), News & Order Book Stream -->
+      <!-- Right Column: AI Recommendations, News & Order Book Stream -->
       <div class="right-column">
 
-        <!-- Hybrid Recommendation Engine with Risk Profile Selector -->
         <section class="card" id="tour-step-6">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <h3>🤖 Hybrid AI Recommendation</h3>
@@ -219,7 +214,6 @@
           </div>
         </section>
 
-        <!-- Real-time Market News -->
         <section class="card" id="tour-step-10">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h3>📰 Real-time Market News</h3>
@@ -237,7 +231,6 @@
           </div>
         </section>
 
-        <!-- Real-Time Institutional L1/L2 Order Book Stream -->
         <section class="card" id="tour-step-11">
           <div class="card-header">
             <h3>⚡ Multi-Asset L1/L2 Order Book</h3>
@@ -267,7 +260,45 @@
     </div>
   </main>
 
-  <!-- Modals -->
+  <!-- Automated Backtesting Framework Modal -->
+  <div id="backtest-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 750px;">
+      <div class="modal-header">
+        <h3 style="color: var(--accent-green);">📈 Automated Backtesting Framework</h3>
+        <button onclick="closeBacktestModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 12px; color: var(--text-muted);">Simulating historical performance of the XGBoost + Conformal Quantile Strategy against a Buy-and-Hold benchmark over the past 180 trading sessions.</p>
+        
+        <div class="prediction-cards-grid" style="margin-top: 8px;">
+          <div class="pred-card">
+            <span class="card-label">Strategy Final Value</span>
+            <span class="card-value text-gain" id="bt-strat-val">$12,450</span>
+            <span class="card-sub" id="bt-strat-ret">+24.50% Return</span>
+          </div>
+          <div class="pred-card">
+            <span class="card-label">Buy & Hold Benchmark</span>
+            <span class="card-value" id="bt-bh-val">$10,980</span>
+            <span class="card-sub" id="bt-bh-ret">+9.80% Return</span>
+          </div>
+          <div class="pred-card">
+            <span class="card-label">Strategy Outperformance</span>
+            <span class="card-value text-gain" id="bt-outperf">+14.70%</span>
+            <span class="card-sub">Sharpe Ratio: <strong id="bt-sharpe">1.84</strong></span>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">HISTORICAL EQUITY CURVE COMPARISON ($10,000 START)</div>
+          <div id="backtest-chart-container" style="width: 100%; height: 260px; background: var(--bg-surface-alt); border-radius: 8px; border: 1px solid var(--border-color); position: relative;"></div>
+        </div>
+
+        <button onclick="runBacktestSimulation()" class="btn-primary" style="width: 100%; margin-top: 14px;">Re-run Backtest Simulation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Other Modals -->
   <div id="stocks-modal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-header">
@@ -282,9 +313,9 @@
   </div>
 
   <div id="broker-modal" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
-        <h3>⚡ Direct Broker Router & Bracket Risk Control</h3>
+        <h3>⚡ Direct Broker Router & Order Book Details</h3>
         <button onclick="closeBrokerModal()" class="close-btn">&times;</button>
       </div>
       <div class="modal-body">
@@ -336,7 +367,7 @@
           </div>
         </div>
         <button onclick="submitBrokerOrder()" class="btn-primary" style="width: 100%; margin-top: 10px;">Execute Order via API</button>
-        <div id="broker-response-box" class="hidden" style="margin-top: 12px; font-size: 13px; padding: 12px; background: var(--bg-surface-alt); border-radius: 6px;"></div>
+        <div id="broker-response-box" class="hidden" style="margin-top: 12px; font-size: 13px; padding: 14px; background: var(--bg-surface-alt); border-radius: 6px; border: 1px solid var(--border-color);"></div>
       </div>
     </div>
   </div>
