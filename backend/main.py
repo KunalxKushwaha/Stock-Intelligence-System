@@ -7,9 +7,12 @@ from typing import Optional
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import requests
+from backend.db.mongodb import connect_to_mongo, close_mongo_connection
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root_dir))
+backend_dir = Path(__file__).resolve().parent
+sys.path.insert(0, str(backend_dir))
 
 load_dotenv(root_dir / '.env')
 
@@ -24,6 +27,9 @@ from tensorflow.keras.models import load_model  # type: ignore
 from ML.feature_engineering.build_features import engineer_features  
 from data_pipeline.news_data.fetcher import fetch_company_news 
 from recommendation_engine.engine import compute_hybrid_recommendation
+from db.mongodb import connect_to_mongo, close_mongo_connection
+from api.auth import router as auth_router
+from api.sync import router as sync_router
 
 app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.9.3")
 
@@ -34,6 +40,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
+app.include_router(sync_router)
+
+@app.on_event("startup")
+async def on_startup():
+    await connect_to_mongo()
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await close_mongo_connection()
 
 models_dir = root_dir / 'ML' / 'models'
 

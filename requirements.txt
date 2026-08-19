@@ -51,6 +51,9 @@ plotly
 fastapi
 uvicorn
 python-multipart
+passlib[bcrypt]
+python-jose[cryptography]
+pydantic[email]
 
 # ==========================
 # Database

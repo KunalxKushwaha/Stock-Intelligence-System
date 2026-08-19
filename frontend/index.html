@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Stock Intelligence & Multi-Asset Terminal</title>
+  <link rel="shortcut icon" href="/frontend/public/growth.png" type="image/x-icon">
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -25,6 +26,7 @@
     </form>
 
     <div class="nav-actions">
+      <button onclick="openAuthModal('login')" class="btn-secondary" id="auth-nav-btn">👤 Sign In</button>
       <button onclick="openStocksModal()" class="btn-secondary" id="tour-asset-dir">📂 Asset Directory</button>
       <button onclick="openBacktestModal()" class="btn-secondary" id="tour-backtest">📈 Backtest</button>
       <button onclick="openBrokerModal()" class="btn-secondary" id="broker-btn">⚡ Broker Router</button>
@@ -372,6 +374,52 @@
     </div>
   </div>
 
+  <!-- Auth Modal — paste anywhere near your other modals, e.g. right before #portfolio-modal -->
+<div id="auth-modal" class="modal hidden">
+  <div class="modal-content" style="max-width: 420px;">
+    <div class="modal-header">
+      <h3>👤 Account</h3>
+      <button onclick="closeAuthModal()" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-tabs">
+        <button onclick="switchAuthTab('login')" class="port-tab-btn auth-tab-btn active" data-tab="login">Sign In</button>
+        <button onclick="switchAuthTab('register')" class="port-tab-btn auth-tab-btn" data-tab="register">Create Account</button>
+      </div>
+
+      <div id="auth-error-box" class="hidden" style="margin: 12px 0; padding: 10px 12px; font-size: 13px; border-radius: 6px; background: rgba(198,50,59,0.12); color: var(--accent-red, #c6323b); border: 1px solid var(--accent-red, #c6323b);"></div>
+
+      <div id="auth-form-login">
+        <div class="form-group">
+          <label>Email:</label>
+          <input type="email" id="login-email-input" placeholder="[email protected]">
+        </div>
+        <div class="form-group">
+          <label>Password:</label>
+          <input type="password" id="login-password-input" placeholder="••••••••">
+        </div>
+        <button onclick="submitLogin()" class="btn-primary" style="width: 100%; margin-top: 10px;">Sign In</button>
+      </div>
+
+      <div id="auth-form-register" class="hidden">
+        <div class="form-group">
+          <label>Name:</label>
+          <input type="text" id="register-name-input" placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label>Email:</label>
+          <input type="email" id="register-email-input" placeholder="[email protected]">
+        </div>
+        <div class="form-group">
+          <label>Password:</label>
+          <input type="password" id="register-password-input" placeholder="At least 8 characters">
+        </div>
+        <button onclick="submitRegister()" class="btn-primary" style="width: 100%; margin-top: 10px;">Create Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   <div id="portfolio-modal" class="modal hidden">
     <div class="modal-content portfolio-modal-content">
       <div class="modal-header">
@@ -386,11 +434,26 @@
         <div id="tab-watchlist">
           <div id="watchlist-items-container"></div>
         </div>
-        <div id="tab-positions" class="hidden">
+                <div id="tab-positions" class="hidden">
           <div class="port-summary-box">
             <div>Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
             <div>Buying Power: <strong id="port-cash-val">$0.00</strong></div>
           </div>
+          <div class="form-row" style="margin-bottom: 12px;">
+            <div class="form-group">
+              <label>Ticker:</label>
+              <input type="text" id="pos-ticker-input" placeholder="AAPL">
+            </div>
+            <div class="form-group">
+              <label>Qty:</label>
+              <input type="number" id="pos-qty-input" placeholder="10" step="any">
+            </div>
+            <div class="form-group">
+              <label>Buy Price ($):</label>
+              <input type="number" id="pos-price-input" placeholder="150.00" step="0.01">
+            </div>
+          </div>
+          <button onclick="addPortfolioPosition()" class="btn-primary" style="width: 100%; margin-bottom: 12px;">+ Add Position</button>
           <div id="positions-items-container"></div>
         </div>
       </div>
@@ -432,5 +495,6 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="auth.js"></script>
 </body>
 </html>
