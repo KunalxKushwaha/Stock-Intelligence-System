@@ -11,11 +11,11 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 from bson import ObjectId
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from db.mongodb import get_db
 
@@ -29,19 +29,24 @@ if not JWT_SECRET_KEY:
         "at the project root for what to add."
     )
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # auto_error=False so a missing token becomes our own clear 401 message
 # below, instead of FastAPI's generic default.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 def hash_password(plain_password: str) -> str:
-    return pwd_context.hash(plain_password)
+    # bcrypt only ever uses the first 72 bytes of a password. The register
+    # schema already rejects longer passwords (see UserRegister.password's
+    # max_length) — this slice is just a safety net so hashing itself can
+    # never throw, regardless of what reaches this function.
+    password_bytes = plain_password.encode("utf-8")[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    password_bytes = plain_password.encode("utf-8")[:72]
+    return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
 
 
 def create_access_token(subject: str) -> str:

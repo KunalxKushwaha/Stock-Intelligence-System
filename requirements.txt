@@ -51,7 +51,7 @@ plotly
 fastapi
 uvicorn
 python-multipart
-passlib[bcrypt]
+bcrypt
 python-jose[cryptography]
 pydantic[email]
 
