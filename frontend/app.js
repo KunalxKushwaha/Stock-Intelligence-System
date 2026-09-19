@@ -18,8 +18,7 @@ let activeChartType = 'candlestick';
 let showSma = false;
 let showBb = false;
 
-let currentArticles = [];
-let currentFactClaims = [];
+let cachedArticles = [];
 let activeNewsFilter = 'general';
 let newsDisplayLimit = 5;
 let activeTicker = 'AAPL';
@@ -102,7 +101,6 @@ function initTradingViewChart() {
   tvLineSeries.applyOptions({ visible: activeChartType === 'line' });
   tvCandleSeries.applyOptions({ visible: activeChartType === 'candlestick' });
 
-  // Hidden by default until toggled by user
   tvSmaSeries = tvChart.addLineSeries({ color: '#f59e0b', lineWidth: 1.5, title: 'SMA 20' });
   tvBbUpperSeries = tvChart.addLineSeries({ color: 'rgba(59, 130, 246, 0.6)', lineWidth: 1, lineStyle: 2 });
   tvBbLowerSeries = tvChart.addLineSeries({ color: 'rgba(59, 130, 246, 0.6)', lineWidth: 1, lineStyle: 2 });
@@ -413,6 +411,7 @@ function switchNewsTab(filterType, btnElem) {
   document.querySelectorAll('.news-tab-btn').forEach(b => b.classList.remove('active'));
   btnElem.classList.add('active');
   activeNewsFilter = filterType;
+  newsDisplayLimit = 5; // Reset limit on tab switch
   renderMergedNewsSection();
 }
 
@@ -421,50 +420,53 @@ function loadMoreNews() {
   renderMergedNewsSection();
 }
 
+async function fetchNewsForActiveTicker() {
+  try {
+    const res = await fetch(`http://localhost:8000/api/stock/news?ticker=${activeTicker}`);
+    const data = await res.json();
+    cachedArticles = data.articles || [];
+  } catch (err) {
+    console.error("News fetch error:", err);
+    cachedArticles = [];
+  }
+}
+
 function renderMergedNewsSection() {
   const container = document.getElementById('news-container');
   const moreContainer = document.getElementById('news-more-wrapper');
   if (!container) return;
 
   let dataset = [];
-  // Find name across grouped categories
-  let cName = activeTicker;
-  for (const catObj of Object.values(ASSET_DIRECTORY)) {
-    if (catObj[activeTicker]) {
-      cName = catObj[activeTicker].name;
-      break;
-    }
-  }
-
   if (activeNewsFilter === 'general') {
-    dataset = [
-      { title: `Institutional Inflows Accelerate for ${cName}`, url: '#', source: 'Bloomberg', published_at: '2026-08-18' },
-      { title: `Retail Investor Volume Surges Across Social Channels for ${cName}`, url: '#', source: 'Yahoo Finance', published_at: '2026-08-18' },
-      { title: `Global Market Liquidity Trends Favor Large-Cap Growth Equities`, url: '#', source: 'Business Insider', published_at: '2026-08-17' },
-      { title: `Sector Rotation Highlights Strong Momentum in Technology and AI`, url: '#', source: 'CNBC', published_at: '2026-08-17' },
-      { title: `Market Sentiment Indicators Point to Steady Expansion`, url: '#', source: 'MarketWatch', published_at: '2026-08-16' }
-    ];
+    dataset = cachedArticles;
   } else if (activeNewsFilter === 'verified') {
-    dataset = [
-      { title: `Earnings Call Transcript Analysis Points to Robust Margins for ${cName}`, url: '#', source: 'Reuters', published_at: '2026-08-18' },
-      { title: `Federal Reserve Rate Decision Impacts Valuation Multiples`, url: '#', source: 'The Wall Street Journal', published_at: '2026-08-18' },
-      { title: `Quarterly Balance Sheet Audit Confirms Solid Cash Reserves`, url: '#', source: 'Financial Times', published_at: '2026-08-16' },
-      { title: `Regulatory Filing Discloses Institutional Stake Adjustments`, url: '#', source: 'Bloomberg Regulatory', published_at: '2026-08-15' }
-    ];
+    dataset = cachedArticles.filter(art => {
+      const src = (art.source || '').toLowerCase();
+      return VERIFIED_FINANCIAL_SOURCES.some(v => src.includes(v));
+    });
+    if (dataset.length === 0) dataset = cachedArticles.slice(0, 3);
   } else if (activeNewsFilter === 'rumored') {
     dataset = [
-      { title: `Market Speculation Suggests Upcoming Strategic Partnership or Expansion`, url: '#', source: 'Rumor Desk', published_at: 'Unverified' },
-      { title: `Unconfirmed Reports of Supply Chain Restructuring in Asian Markets`, url: '#', source: 'Industry Insider', published_at: 'Unverified' },
-      { title: `Whispers of Potential Mergers and Acquisition Interest in Sector`, url: '#', source: 'Anonymous Tipster', published_at: 'Unverified' }
+      { title: `Market Speculation Suggests Upcoming Strategic Partnership or Expansion for ${activeTicker}`, url: '#', source: 'Rumor Desk', published_at: 'Unverified', impact: 'Neutral', relevance: `Unverified market chatter regarding potential future developments for ${activeTicker}.` },
+      { title: `Unconfirmed Reports of Supply Chain Adjustments Impacting ${activeTicker}`, url: '#', source: 'Industry Insider', published_at: 'Unverified', impact: 'Negative', relevance: `Speculative whispers regarding operational hurdles for ${activeTicker}.` }
     ];
   }
 
-  container.innerHTML = dataset.slice(0, newsDisplayLimit).map(art => `
-    <a href="${art.url}" target="_blank" class="feed-item">
-      <div class="feed-title-container"><h4>${art.title}</h4></div>
-      <div class="feed-meta"><span>${art.source}</span><span>${art.published_at}</span></div>
-    </a>
-  `).join('');
+  container.innerHTML = dataset.slice(0, newsDisplayLimit).map(art => {
+    const impactClass = art.impact === 'Positive' ? 'text-gain' : (art.impact === 'Negative' ? 'text-risk' : '');
+    return `
+      <a href="${art.url || '#'}" target="_blank" class="feed-item" style="display:flex; flex-direction:column; gap:6px;">
+        <div class="feed-title-container" style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <h4 style="font-size:13px; font-weight:600;">${art.title}</h4>
+          <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:var(--bg-surface-alt); border:1px solid var(--border-color);" class="${impactClass}">${art.impact || 'Neutral'}</span>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted); line-height:1.4; margin:0;">💡 <strong>Relevance:</strong> ${art.relevance || 'Directly impacts market sentiment.'}</p>
+        <div class="feed-meta" style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;">
+          <span>${art.source}</span><span>${art.published_at}</span>
+        </div>
+      </a>
+    `;
+  }).join('') || '<p style="font-size: 13px; color: var(--text-muted); padding: 10px;">No articles found for this category.</p>';
 
   if (moreContainer) {
     moreContainer.classList.toggle('hidden', dataset.length <= newsDisplayLimit);
@@ -582,7 +584,6 @@ function filterDataByTimeframe(data, tf) {
 }
 
 function renderProfessionalChart(ticker, historicalData) {
-  // Find info across grouped categories
   let assetInfo = { name: ticker };
   for (const catObj of Object.values(ASSET_DIRECTORY)) {
     if (catObj[ticker]) {
@@ -628,6 +629,7 @@ async function fetchIntelligence(tickerInputVal) {
   activeTicker = String(tickerInputVal).trim().split(' ')[0].toUpperCase();
   document.getElementById('ticker-input').value = activeTicker;
   const riskProfile = document.getElementById('risk-profile-select').value;
+  newsDisplayLimit = 5; // Reset pagination limit on new asset selection
 
   const loader = document.getElementById('loader');
   const dashboard = document.getElementById('dashboard');
@@ -663,7 +665,11 @@ async function fetchIntelligence(tickerInputVal) {
     document.getElementById('val-macd').textContent = resData.technical_indicators.macd;
 
     renderProfessionalChart(activeTicker, filterDataByTimeframe(rawHistoricalData, activeTimeframe));
+    
+    // Fetch and render news cleanly
+    await fetchNewsForActiveTicker();
     renderMergedNewsSection();
+    
     connectOrderBookStream(activeTicker);
 
     loader.classList.add('hidden');
