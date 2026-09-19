@@ -18,14 +18,16 @@ let activeChartType = 'candlestick';
 let showSma = false;
 let showBb = false;
 
-let currentArticles = [];
-let currentFactClaims = [];
+let cachedArticles = [];
 let activeNewsFilter = 'general';
 let newsDisplayLimit = 5;
 let activeTicker = 'AAPL';
 let activeCurrentPrice = 0.0;
 let orderBookSocket = null;
 let brokerStatusSocket = null;
+
+let cachedOptionsData = null;
+let selectedOptionsDays = 30;
 
 const ASSET_DIRECTORY = {
   "Equities": {
@@ -102,7 +104,6 @@ function initTradingViewChart() {
   tvLineSeries.applyOptions({ visible: activeChartType === 'line' });
   tvCandleSeries.applyOptions({ visible: activeChartType === 'candlestick' });
 
-  // Hidden by default until toggled by user
   tvSmaSeries = tvChart.addLineSeries({ color: '#f59e0b', lineWidth: 1.5, title: 'SMA 20' });
   tvBbUpperSeries = tvChart.addLineSeries({ color: 'rgba(59, 130, 246, 0.6)', lineWidth: 1, lineStyle: 2 });
   tvBbLowerSeries = tvChart.addLineSeries({ color: 'rgba(59, 130, 246, 0.6)', lineWidth: 1, lineStyle: 2 });
@@ -151,6 +152,114 @@ function toggleIndicator(ind) {
       tvBbLowerSeries.applyOptions({ visible: showBb });
     }
   }
+}
+
+// ==========================================
+// Options Chains & Greeks Analytics Controller
+// ==========================================
+function openOptionsModal() {
+  document.body.classList.add('modal-open');
+  document.getElementById('options-modal').classList.remove('hidden');
+  document.getElementById('options-modal-title').textContent = `Options Chains & Greeks Analytics (${activeTicker})`;
+  loadOptionsChain(selectedOptionsDays);
+}
+
+function closeOptionsModal() {
+  document.body.classList.remove('modal-open');
+  document.getElementById('options-modal').classList.add('hidden');
+}
+
+function switchOptionsTab(tabType, btnElem) {
+  document.querySelectorAll('#options-modal .port-tab-btn').forEach(b => b.classList.remove('active'));
+  btnElem.classList.add('active');
+  document.getElementById('options-matrix-view').classList.toggle('hidden', tabType !== 'matrix');
+  document.getElementById('options-smile-view').classList.toggle('hidden', tabType !== 'smile');
+}
+
+function onOptionsExpiryChange() {
+  const sel = document.getElementById('options-expiry-select');
+  selectedOptionsDays = parseInt(sel.value, 10);
+  loadOptionsChain(selectedOptionsDays);
+}
+
+async function loadOptionsChain(days = 30) {
+  const tbody = document.getElementById('options-table-body');
+  tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 20px;">Computing real-time Greeks and chains...</td></tr>';
+
+  try {
+    const res = await fetch(`http://localhost:8000/api/options/chain?ticker=${activeTicker}&days=${days}`);
+    const data = await res.json();
+    cachedOptionsData = data;
+
+    const expirySelect = document.getElementById('options-expiry-select');
+    // Ensure dropdown options are populated and preserve active selection
+    if (expirySelect.options.length === 0 || expirySelect.dataset.ticker !== activeTicker) {
+      expirySelect.dataset.ticker = activeTicker;
+      expirySelect.innerHTML = (data.expirations || []).map(exp => `
+        <option value="${exp.days}" ${exp.days === days ? 'selected' : ''}>${exp.label}</option>
+      `).join('');
+    } else {
+      expirySelect.value = String(days);
+    }
+
+    document.getElementById('opt-spot-price').textContent = `$${data.underlying_price.toFixed(2)}`;
+    document.getElementById('opt-atm-iv').textContent = `${data.atm_iv}%`;
+    document.getElementById('opt-exp-move').textContent = `±$${data.expected_move.toFixed(2)}`;
+    document.getElementById('opt-pcr').textContent = data.put_call_ratio;
+
+    // Render Matrix Rows
+    tbody.innerHTML = (data.chain || []).map(row => {
+      const c = row.call;
+      const p = row.put;
+      const atmClass = row.is_atm ? 'atm-strike-row' : '';
+
+      return `
+        <tr class="${atmClass}">
+          <td style="color:var(--text-muted);">${c.open_interest.toLocaleString()}</td>
+          <td class="text-gain">${c.delta}</td>
+          <td style="color:var(--text-muted);">${c.theta}</td>
+          <td>${c.iv}%</td>
+          <td class="text-gain">$${c.bid.toFixed(2)}</td>
+          <td class="text-risk">$${c.ask.toFixed(2)}</td>
+          <td class="strike-col">$${row.strike.toFixed(2)}</td>
+          <td class="text-gain">$${p.bid.toFixed(2)}</td>
+          <td class="text-risk">$${p.ask.toFixed(2)}</td>
+          <td>${p.iv}%</td>
+          <td class="text-risk">${p.delta}</td>
+          <td style="color:var(--text-muted);">${p.theta}</td>
+          <td style="color:var(--text-muted);">${p.open_interest.toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
+
+    renderIvSmile(data.iv_smile || []);
+
+  } catch (err) {
+    console.error("Options chain error:", err);
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:var(--accent-red); padding: 20px;">Failed to load options analytics.</td></tr>';
+  }
+}
+
+function renderIvSmile(smilePoints) {
+  const container = document.getElementById('options-smile-container');
+  if (!container || !smilePoints || smilePoints.length === 0) return;
+
+  const ivValues = smilePoints.map(p => p.iv);
+  const minIv = Math.min(...ivValues);
+  const maxIv = Math.max(...ivValues);
+  const ivRange = Math.max(maxIv - minIv, 1.5);
+
+  container.innerHTML = smilePoints.map(pt => {
+    // Relative visual normalization: highlights steepness differences across expirations
+    const barHeight = Math.round(25 + ((pt.iv - minIv) / ivRange) * 135);
+    return `
+      <div class="smile-bar-col">
+        <span style="font-size:10px; color:var(--accent-blue); font-weight:600;">${pt.iv}%</span>
+        <div class="smile-bar" style="height: ${barHeight}px;" title="Strike: $${pt.strike} | Expiry IV: ${pt.iv}%"></div>
+        <span style="font-size:10px; font-weight:600;">$${pt.strike}</span>
+      </div>
+    `;
+  }).join('');
 }
 
 // ==========================================
@@ -265,14 +374,15 @@ const tourSteps = [
   { id: "tour-step-1", title: "1. Current Asset Price", desc: "Displays live execution price across equities, crypto, forex, and derivatives." },
   { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the multi-asset AI model." },
   { id: "tour-step-3", title: "3. 90% Safety Floor", desc: "Calculates downside risk floor using Quantile Conformal XGBoost." },
-  { id: "tour-backtest", title: "4. Automated Backtesting", desc: "Test historical strategy performance against a buy-and-hold benchmark." },
-  { id: "broker-btn", title: "5. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
-  { id: "portfolio-btn", title: "6. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
-  { id: "tour-step-6", title: "7. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
-  { id: "tour-step-7", title: "8. Advanced Professional Charting Suite", desc: "Interactive TradingView Lightweight Charts with candlestick/line modes, SMA, Bollinger Bands, and Pine Script." },
-  { id: "tour-step-8", title: "9. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
-  { id: "tour-step-10", title: "10. Real-Time Market News", desc: "Aggregates filtered news feeds and rumor inspections with pagination." },
-  { id: "tour-step-11", title: "11. Multi-Asset L1/L2 Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes with volume depth bars." }
+  { id: "tour-options-btn", title: "4. Options Chains & Greeks Analytics", desc: "Interactive options expiry matrix, Implied Volatility smile, and Black-Scholes Greeks (Delta, Gamma, Theta, Vega)." },
+  { id: "tour-backtest", title: "5. Automated Backtesting", desc: "Test historical strategy performance against a buy-and-hold benchmark." },
+  { id: "broker-btn", title: "6. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
+  { id: "portfolio-btn", title: "7. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
+  { id: "tour-step-6", title: "8. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
+  { id: "tour-step-7", title: "9. Advanced Professional Charting Suite", desc: "Interactive TradingView Lightweight Charts with candlestick/line modes, SMA, Bollinger Bands, and Pine Script." },
+  { id: "tour-step-8", title: "10. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
+  { id: "tour-step-10", title: "11. Real-Time Market News", desc: "Aggregates filtered news feeds, unique relevance analysis, and impact scoring." },
+  { id: "tour-step-11", title: "12. Multi-Asset L1/L2 Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes with volume depth bars." }
 ];
 
 let currentTourIdx = 0;
@@ -413,6 +523,7 @@ function switchNewsTab(filterType, btnElem) {
   document.querySelectorAll('.news-tab-btn').forEach(b => b.classList.remove('active'));
   btnElem.classList.add('active');
   activeNewsFilter = filterType;
+  newsDisplayLimit = 5;
   renderMergedNewsSection();
 }
 
@@ -421,50 +532,53 @@ function loadMoreNews() {
   renderMergedNewsSection();
 }
 
+async function fetchNewsForActiveTicker() {
+  try {
+    const res = await fetch(`http://localhost:8000/api/stock/news?ticker=${activeTicker}`);
+    const data = await res.json();
+    cachedArticles = data.articles || [];
+  } catch (err) {
+    console.error("News fetch error:", err);
+    cachedArticles = [];
+  }
+}
+
 function renderMergedNewsSection() {
   const container = document.getElementById('news-container');
   const moreContainer = document.getElementById('news-more-wrapper');
   if (!container) return;
 
   let dataset = [];
-  // Find name across grouped categories
-  let cName = activeTicker;
-  for (const catObj of Object.values(ASSET_DIRECTORY)) {
-    if (catObj[activeTicker]) {
-      cName = catObj[activeTicker].name;
-      break;
-    }
-  }
-
   if (activeNewsFilter === 'general') {
-    dataset = [
-      { title: `Institutional Inflows Accelerate for ${cName}`, url: '#', source: 'Bloomberg', published_at: '2026-08-18' },
-      { title: `Retail Investor Volume Surges Across Social Channels for ${cName}`, url: '#', source: 'Yahoo Finance', published_at: '2026-08-18' },
-      { title: `Global Market Liquidity Trends Favor Large-Cap Growth Equities`, url: '#', source: 'Business Insider', published_at: '2026-08-17' },
-      { title: `Sector Rotation Highlights Strong Momentum in Technology and AI`, url: '#', source: 'CNBC', published_at: '2026-08-17' },
-      { title: `Market Sentiment Indicators Point to Steady Expansion`, url: '#', source: 'MarketWatch', published_at: '2026-08-16' }
-    ];
+    dataset = cachedArticles;
   } else if (activeNewsFilter === 'verified') {
-    dataset = [
-      { title: `Earnings Call Transcript Analysis Points to Robust Margins for ${cName}`, url: '#', source: 'Reuters', published_at: '2026-08-18' },
-      { title: `Federal Reserve Rate Decision Impacts Valuation Multiples`, url: '#', source: 'The Wall Street Journal', published_at: '2026-08-18' },
-      { title: `Quarterly Balance Sheet Audit Confirms Solid Cash Reserves`, url: '#', source: 'Financial Times', published_at: '2026-08-16' },
-      { title: `Regulatory Filing Discloses Institutional Stake Adjustments`, url: '#', source: 'Bloomberg Regulatory', published_at: '2026-08-15' }
-    ];
+    dataset = cachedArticles.filter(art => {
+      const src = (art.source || '').toLowerCase();
+      return VERIFIED_FINANCIAL_SOURCES.some(v => src.includes(v));
+    });
+    if (dataset.length === 0) dataset = cachedArticles.slice(0, 3);
   } else if (activeNewsFilter === 'rumored') {
     dataset = [
-      { title: `Market Speculation Suggests Upcoming Strategic Partnership or Expansion`, url: '#', source: 'Rumor Desk', published_at: 'Unverified' },
-      { title: `Unconfirmed Reports of Supply Chain Restructuring in Asian Markets`, url: '#', source: 'Industry Insider', published_at: 'Unverified' },
-      { title: `Whispers of Potential Mergers and Acquisition Interest in Sector`, url: '#', source: 'Anonymous Tipster', published_at: 'Unverified' }
+      { title: `Market Speculation Suggests Upcoming Strategic Partnership or Expansion for ${activeTicker}`, url: '#', source: 'Rumor Desk', published_at: 'Unverified', impact: 'Neutral', relevance: `Unverified market chatter regarding potential future developments for ${activeTicker}.` },
+      { title: `Unconfirmed Reports of Supply Chain Adjustments Impacting ${activeTicker}`, url: '#', source: 'Industry Insider', published_at: 'Unverified', impact: 'Negative', relevance: `Speculative whispers regarding operational hurdles for ${activeTicker}.` }
     ];
   }
 
-  container.innerHTML = dataset.slice(0, newsDisplayLimit).map(art => `
-    <a href="${art.url}" target="_blank" class="feed-item">
-      <div class="feed-title-container"><h4>${art.title}</h4></div>
-      <div class="feed-meta"><span>${art.source}</span><span>${art.published_at}</span></div>
-    </a>
-  `).join('');
+  container.innerHTML = dataset.slice(0, newsDisplayLimit).map(art => {
+    const impactClass = art.impact === 'Positive' ? 'text-gain' : (art.impact === 'Negative' ? 'text-risk' : '');
+    return `
+      <a href="${art.url || '#'}" target="_blank" class="feed-item" style="display:flex; flex-direction:column; gap:6px;">
+        <div class="feed-title-container" style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <h4 style="font-size:13px; font-weight:600;">${art.title}</h4>
+          <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:var(--bg-surface-alt); border:1px solid var(--border-color);" class="${impactClass}">${art.impact || 'Neutral'}</span>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted); line-height:1.4; margin:0;">💡 <strong>Relevance:</strong> ${art.relevance || 'Directly impacts market sentiment.'}</p>
+        <div class="feed-meta" style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;">
+          <span>${art.source}</span><span>${art.published_at}</span>
+        </div>
+      </a>
+    `;
+  }).join('') || '<p style="font-size: 13px; color: var(--text-muted); padding: 10px;">No articles found for this category.</p>';
 
   if (moreContainer) {
     moreContainer.classList.toggle('hidden', dataset.length <= newsDisplayLimit);
@@ -582,7 +696,6 @@ function filterDataByTimeframe(data, tf) {
 }
 
 function renderProfessionalChart(ticker, historicalData) {
-  // Find info across grouped categories
   let assetInfo = { name: ticker };
   for (const catObj of Object.values(ASSET_DIRECTORY)) {
     if (catObj[ticker]) {
@@ -628,6 +741,7 @@ async function fetchIntelligence(tickerInputVal) {
   activeTicker = String(tickerInputVal).trim().split(' ')[0].toUpperCase();
   document.getElementById('ticker-input').value = activeTicker;
   const riskProfile = document.getElementById('risk-profile-select').value;
+  newsDisplayLimit = 5;
 
   const loader = document.getElementById('loader');
   const dashboard = document.getElementById('dashboard');
@@ -663,7 +777,10 @@ async function fetchIntelligence(tickerInputVal) {
     document.getElementById('val-macd').textContent = resData.technical_indicators.macd;
 
     renderProfessionalChart(activeTicker, filterDataByTimeframe(rawHistoricalData, activeTimeframe));
+    
+    await fetchNewsForActiveTicker();
     renderMergedNewsSection();
+    
     connectOrderBookStream(activeTicker);
 
     loader.classList.add('hidden');
