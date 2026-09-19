@@ -26,6 +26,9 @@ let activeCurrentPrice = 0.0;
 let orderBookSocket = null;
 let brokerStatusSocket = null;
 
+let cachedOptionsData = null;
+let selectedOptionsDays = 30;
+
 const ASSET_DIRECTORY = {
   "Equities": {
     "AAPL": { name: "Apple Inc.", class: "Equities", base: 305.59 },
@@ -152,6 +155,114 @@ function toggleIndicator(ind) {
 }
 
 // ==========================================
+// Options Chains & Greeks Analytics Controller
+// ==========================================
+function openOptionsModal() {
+  document.body.classList.add('modal-open');
+  document.getElementById('options-modal').classList.remove('hidden');
+  document.getElementById('options-modal-title').textContent = `Options Chains & Greeks Analytics (${activeTicker})`;
+  loadOptionsChain(selectedOptionsDays);
+}
+
+function closeOptionsModal() {
+  document.body.classList.remove('modal-open');
+  document.getElementById('options-modal').classList.add('hidden');
+}
+
+function switchOptionsTab(tabType, btnElem) {
+  document.querySelectorAll('#options-modal .port-tab-btn').forEach(b => b.classList.remove('active'));
+  btnElem.classList.add('active');
+  document.getElementById('options-matrix-view').classList.toggle('hidden', tabType !== 'matrix');
+  document.getElementById('options-smile-view').classList.toggle('hidden', tabType !== 'smile');
+}
+
+function onOptionsExpiryChange() {
+  const sel = document.getElementById('options-expiry-select');
+  selectedOptionsDays = parseInt(sel.value, 10);
+  loadOptionsChain(selectedOptionsDays);
+}
+
+async function loadOptionsChain(days = 30) {
+  const tbody = document.getElementById('options-table-body');
+  tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 20px;">Computing real-time Greeks and chains...</td></tr>';
+
+  try {
+    const res = await fetch(`http://localhost:8000/api/options/chain?ticker=${activeTicker}&days=${days}`);
+    const data = await res.json();
+    cachedOptionsData = data;
+
+    const expirySelect = document.getElementById('options-expiry-select');
+    // Ensure dropdown options are populated and preserve active selection
+    if (expirySelect.options.length === 0 || expirySelect.dataset.ticker !== activeTicker) {
+      expirySelect.dataset.ticker = activeTicker;
+      expirySelect.innerHTML = (data.expirations || []).map(exp => `
+        <option value="${exp.days}" ${exp.days === days ? 'selected' : ''}>${exp.label}</option>
+      `).join('');
+    } else {
+      expirySelect.value = String(days);
+    }
+
+    document.getElementById('opt-spot-price').textContent = `$${data.underlying_price.toFixed(2)}`;
+    document.getElementById('opt-atm-iv').textContent = `${data.atm_iv}%`;
+    document.getElementById('opt-exp-move').textContent = `±$${data.expected_move.toFixed(2)}`;
+    document.getElementById('opt-pcr').textContent = data.put_call_ratio;
+
+    // Render Matrix Rows
+    tbody.innerHTML = (data.chain || []).map(row => {
+      const c = row.call;
+      const p = row.put;
+      const atmClass = row.is_atm ? 'atm-strike-row' : '';
+
+      return `
+        <tr class="${atmClass}">
+          <td style="color:var(--text-muted);">${c.open_interest.toLocaleString()}</td>
+          <td class="text-gain">${c.delta}</td>
+          <td style="color:var(--text-muted);">${c.theta}</td>
+          <td>${c.iv}%</td>
+          <td class="text-gain">$${c.bid.toFixed(2)}</td>
+          <td class="text-risk">$${c.ask.toFixed(2)}</td>
+          <td class="strike-col">$${row.strike.toFixed(2)}</td>
+          <td class="text-gain">$${p.bid.toFixed(2)}</td>
+          <td class="text-risk">$${p.ask.toFixed(2)}</td>
+          <td>${p.iv}%</td>
+          <td class="text-risk">${p.delta}</td>
+          <td style="color:var(--text-muted);">${p.theta}</td>
+          <td style="color:var(--text-muted);">${p.open_interest.toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
+
+    renderIvSmile(data.iv_smile || []);
+
+  } catch (err) {
+    console.error("Options chain error:", err);
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:var(--accent-red); padding: 20px;">Failed to load options analytics.</td></tr>';
+  }
+}
+
+function renderIvSmile(smilePoints) {
+  const container = document.getElementById('options-smile-container');
+  if (!container || !smilePoints || smilePoints.length === 0) return;
+
+  const ivValues = smilePoints.map(p => p.iv);
+  const minIv = Math.min(...ivValues);
+  const maxIv = Math.max(...ivValues);
+  const ivRange = Math.max(maxIv - minIv, 1.5);
+
+  container.innerHTML = smilePoints.map(pt => {
+    // Relative visual normalization: highlights steepness differences across expirations
+    const barHeight = Math.round(25 + ((pt.iv - minIv) / ivRange) * 135);
+    return `
+      <div class="smile-bar-col">
+        <span style="font-size:10px; color:var(--accent-blue); font-weight:600;">${pt.iv}%</span>
+        <div class="smile-bar" style="height: ${barHeight}px;" title="Strike: $${pt.strike} | Expiry IV: ${pt.iv}%"></div>
+        <span style="font-size:10px; font-weight:600;">$${pt.strike}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ==========================================
 // Automated Backtesting Framework Controller
 // ==========================================
 function openBacktestModal() {
@@ -263,14 +374,15 @@ const tourSteps = [
   { id: "tour-step-1", title: "1. Current Asset Price", desc: "Displays live execution price across equities, crypto, forex, and derivatives." },
   { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the multi-asset AI model." },
   { id: "tour-step-3", title: "3. 90% Safety Floor", desc: "Calculates downside risk floor using Quantile Conformal XGBoost." },
-  { id: "tour-backtest", title: "4. Automated Backtesting", desc: "Test historical strategy performance against a buy-and-hold benchmark." },
-  { id: "broker-btn", title: "5. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
-  { id: "portfolio-btn", title: "6. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
-  { id: "tour-step-6", title: "7. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
-  { id: "tour-step-7", title: "8. Advanced Professional Charting Suite", desc: "Interactive TradingView Lightweight Charts with candlestick/line modes, SMA, Bollinger Bands, and Pine Script." },
-  { id: "tour-step-8", title: "9. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
-  { id: "tour-step-10", title: "10. Real-Time Market News", desc: "Aggregates filtered news feeds and rumor inspections with pagination." },
-  { id: "tour-step-11", title: "11. Multi-Asset L1/L2 Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes with volume depth bars." }
+  { id: "tour-options-btn", title: "4. Options Chains & Greeks Analytics", desc: "Interactive options expiry matrix, Implied Volatility smile, and Black-Scholes Greeks (Delta, Gamma, Theta, Vega)." },
+  { id: "tour-backtest", title: "5. Automated Backtesting", desc: "Test historical strategy performance against a buy-and-hold benchmark." },
+  { id: "broker-btn", title: "6. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
+  { id: "portfolio-btn", title: "7. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
+  { id: "tour-step-6", title: "8. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
+  { id: "tour-step-7", title: "9. Advanced Professional Charting Suite", desc: "Interactive TradingView Lightweight Charts with candlestick/line modes, SMA, Bollinger Bands, and Pine Script." },
+  { id: "tour-step-8", title: "10. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
+  { id: "tour-step-10", title: "11. Real-Time Market News", desc: "Aggregates filtered news feeds, unique relevance analysis, and impact scoring." },
+  { id: "tour-step-11", title: "12. Multi-Asset L1/L2 Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes with volume depth bars." }
 ];
 
 let currentTourIdx = 0;
@@ -411,7 +523,7 @@ function switchNewsTab(filterType, btnElem) {
   document.querySelectorAll('.news-tab-btn').forEach(b => b.classList.remove('active'));
   btnElem.classList.add('active');
   activeNewsFilter = filterType;
-  newsDisplayLimit = 5; // Reset limit on tab switch
+  newsDisplayLimit = 5;
   renderMergedNewsSection();
 }
 
@@ -629,7 +741,7 @@ async function fetchIntelligence(tickerInputVal) {
   activeTicker = String(tickerInputVal).trim().split(' ')[0].toUpperCase();
   document.getElementById('ticker-input').value = activeTicker;
   const riskProfile = document.getElementById('risk-profile-select').value;
-  newsDisplayLimit = 5; // Reset pagination limit on new asset selection
+  newsDisplayLimit = 5;
 
   const loader = document.getElementById('loader');
   const dashboard = document.getElementById('dashboard');
@@ -666,7 +778,6 @@ async function fetchIntelligence(tickerInputVal) {
 
     renderProfessionalChart(activeTicker, filterDataByTimeframe(rawHistoricalData, activeTimeframe));
     
-    // Fetch and render news cleanly
     await fetchNewsForActiveTicker();
     renderMergedNewsSection();
     
