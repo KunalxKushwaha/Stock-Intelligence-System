@@ -13,7 +13,7 @@
   <header class="navbar">
     <div class="nav-brand">
       <span class="brand-icon">⚡</span>
-      <h1>AlphaTerminal <span class="badge-version">v2.9.1</span></h1>
+      <h1>AlphaTerminal <span class="badge-version">v2.9.3</span></h1>
     </div>
     
     <form class="search-form" onsubmit="handleSearch(event)">
@@ -26,6 +26,7 @@
 
     <div class="nav-actions">
       <button onclick="openStocksModal()" class="btn-secondary" id="tour-asset-dir">📂 Asset Directory</button>
+      <button onclick="openOptionsModal()" class="btn-secondary" id="tour-options-btn">⛓️ Options & Greeks</button>
       <button onclick="openBacktestModal()" class="btn-secondary" id="tour-backtest">📈 Backtest</button>
       <button onclick="openBrokerModal()" class="btn-secondary" id="broker-btn">⚡ Broker Router</button>
       <button onclick="openPortfolioModal()" class="btn-secondary" id="portfolio-btn">📊 Portfolio Sync</button>
@@ -61,7 +62,7 @@
       <div class="asset-identity" id="tour-step-1">
         <h2 id="val-company-name">Apple Inc. (Equities)</h2>
         <div class="price-row">
-          <span class="current-price" id="val-price">$223.96</span>
+          <span class="current-price" id="val-price">$305.59</span>
           <span class="price-change-badge" id="val-return">+2.45%</span>
           <button id="watchlist-toggle-btn" class="watchlist-star-btn" onclick="toggleCurrentWatchlist()" title="Save to Watchlist">☆</button>
         </div>
@@ -70,17 +71,17 @@
       <div class="prediction-cards-grid">
         <div class="pred-card" id="tour-step-2">
           <span class="card-label">Predicted Target Return</span>
-          <span class="card-value" id="val-target">$229.40</span>
+          <span class="card-value" id="val-target">$312.40</span>
           <span class="card-sub">Next-Day Horizon</span>
         </div>
         <div class="pred-card" id="tour-step-3">
           <span class="card-label">90% Safety Floor (5th Pct)</span>
-          <span class="card-value text-risk" id="val-lower">$218.10</span>
+          <span class="card-value text-risk" id="val-lower">$298.10</span>
           <span class="card-sub">Conformal Quantile Risk</span>
         </div>
         <div class="pred-card" id="tour-step-4">
           <span class="card-label">90% Upside Ceiling (95th Pct)</span>
-          <span class="card-value text-gain" id="val-upper">$238.50</span>
+          <span class="card-value text-gain" id="val-upper">$324.50</span>
           <span class="card-sub">Conformal Quantile Margin</span>
         </div>
       </div>
@@ -238,8 +239,8 @@
           </div>
           <div class="orderbook-container">
             <div class="ob-header-stats">
-              <div><span>Bid:</span> <strong id="ob-bid" class="text-gain">$223.90</strong></div>
-              <div><span>Ask:</span> <strong id="ob-ask" class="text-risk">$223.98</strong></div>
+              <div><span>Bid:</span> <strong id="ob-bid" class="text-gain">$305.50</strong></div>
+              <div><span>Ask:</span> <strong id="ob-ask" class="text-risk">$305.58</strong></div>
               <div><span>Spread:</span> <strong id="ob-spread">$0.08</strong></div>
             </div>
             <div class="ob-tables-grid">
@@ -259,6 +260,90 @@
 
     </div>
   </main>
+
+  <!-- Real-Time Options Chains & Greeks Analytics Modal -->
+  <div id="options-modal" class="modal hidden">
+    <div class="modal-content options-modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">⛓️</span>
+          <div>
+            <h3 id="options-modal-title">Options Chains & Greeks Analytics (AAPL)</h3>
+            <p style="font-size: 12px; color: var(--text-muted);">Real-time Black-Scholes Greeks, Implied Volatility Smiles, & Multi-Strike Matrices</p>
+          </div>
+        </div>
+        <button onclick="closeOptionsModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        
+        <div class="options-top-bar">
+          <div class="opt-control-group">
+            <label>Expiration Date:</label>
+            <select id="options-expiry-select" onchange="onOptionsExpiryChange()"></select>
+          </div>
+          <div class="opt-stat-item">
+            <span>Spot Price:</span>
+            <strong id="opt-spot-price">$305.59</strong>
+          </div>
+          <div class="opt-stat-item">
+            <span>ATM Implied Vol (IV):</span>
+            <strong id="opt-atm-iv" class="text-gain">28.0%</strong>
+          </div>
+          <div class="opt-stat-item">
+            <span>Expected Move (±):</span>
+            <strong id="opt-exp-move">$14.20</strong>
+          </div>
+          <div class="opt-stat-item">
+            <span>Put/Call Ratio:</span>
+            <strong id="opt-pcr">0.88</strong>
+          </div>
+        </div>
+
+        <div class="modal-tabs" style="margin-top: 10px;">
+          <button onclick="switchOptionsTab('matrix', this)" class="port-tab-btn active" id="tab-btn-opt-matrix">Options Chain Matrix</button>
+          <button onclick="switchOptionsTab('smile', this)" class="port-tab-btn" id="tab-btn-opt-smile">Implied Volatility (IV) Smile</button>
+        </div>
+
+        <div id="options-matrix-view">
+          <div class="options-table-wrapper">
+            <table class="options-table">
+              <thead>
+                <tr class="opt-super-header">
+                  <th colspan="6" class="call-header-group">CALLS</th>
+                  <th class="strike-header-col">STRIKE</th>
+                  <th colspan="6" class="put-header-group">PUTS</th>
+                </tr>
+                <tr class="opt-sub-header">
+                  <th>OI</th>
+                  <th>Delta</th>
+                  <th>Theta</th>
+                  <th>IV</th>
+                  <th>Bid</th>
+                  <th>Ask</th>
+                  <th class="strike-cell-header">Price</th>
+                  <th>Bid</th>
+                  <th>Ask</th>
+                  <th>IV</th>
+                  <th>Delta</th>
+                  <th>Theta</th>
+                  <th>OI</th>
+                </tr>
+              </thead>
+              <tbody id="options-table-body">
+                <tr><td colspan="13" style="text-align:center; padding: 20px;">Loading institutional options chains...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="options-smile-view" class="hidden">
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">IMPLIED VOLATILITY SMILE & SKEW (STRIKE VS. IV%)</div>
+          <div id="options-smile-container" class="iv-smile-grid"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <!-- Automated Backtesting Framework Modal -->
   <div id="backtest-modal" class="modal hidden">
@@ -397,21 +482,6 @@
     </div>
   </div>
 
-  <div id="fact-modal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>🔍 Rumor & Fact-Check Audit</h3>
-        <button onclick="closeFactModal()" class="close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <h4 id="fact-modal-claim" style="font-weight: 500; margin-bottom: 10px; font-size: 15px;"></h4>
-        <p>Publisher: <strong id="fact-modal-publisher"></strong></p>
-        <p>Rating: <strong id="fact-modal-rating" style="color: var(--accent-red);"></strong></p>
-        <p id="fact-modal-desc" style="font-size: 13px; color: var(--text-muted); margin-top: 10px;"></p>
-      </div>
-    </div>
-  </div>
-
   <div id="tour-modal" class="modal hidden">
     <div class="modal-content tour-modal-content">
       <div class="modal-header">
@@ -421,7 +491,7 @@
       <div class="modal-body">
         <p id="tour-description" style="font-size: 14px; line-height: 1.5; margin-bottom: 16px;"></p>
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span id="tour-step-number" style="font-size: 12px; color: var(--text-muted);">Step 1 of 11</span>
+          <span id="tour-step-number" style="font-size: 12px; color: var(--text-muted);">Step 1 of 12</span>
           <div style="display: flex; gap: 8px;">
             <button onclick="prevTourStep()" id="tour-prev-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 13px;">Previous</button>
             <button onclick="nextTourStep()" id="tour-next-btn" class="btn-primary" style="padding: 6px 12px; font-size: 13px;">Next</button>
@@ -429,6 +499,57 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Unified Draggable Chatbot Root -->
+  <div id="chatbot-root" class="chatbot-root">
+    
+    <!-- Chat Drawer Window (Positioned on top of launcher) -->
+    <div id="chatbot-window" class="chatbot-window hidden">
+      <div class="chatbot-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">🤖</span>
+          <div>
+            <h4>AlphaBot Copilot</h4>
+            <span class="bot-badge">Terminal Knowledge & Risk Engine</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button onclick="clearChatHistory()" class="chat-header-btn" title="Clear Chat History">🗑️</button>
+          <button onclick="toggleChatbot()" class="close-btn" style="color: #fff; font-size: 20px;">&times;</button>
+        </div>
+      </div>
+
+      <!-- Quick Preset Prompt Suggestions -->
+      <div class="chat-quick-suggestions">
+        <button onclick="sendQuickPrompt('Where do I write custom technical indicators?')">⚡ Custom Indicators</button>
+        <button onclick="sendQuickPrompt('Calculate my PnL if I buy 25 shares of the active stock')">💰 25 Shares PnL</button>
+        <button onclick="sendQuickPrompt('Explain the 90% Conformal Safety Floor')">🛡️ 90% Risk Bounds</button>
+        <button onclick="sendQuickPrompt('How do I run a backtest simulation?')">📈 Backtesting</button>
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="chat-messages-container" class="chat-messages-container">
+        <div class="chat-msg bot-msg">
+          <div class="msg-content">
+            Hello! I am <strong>AlphaBot</strong>, your quantitative terminal copilot. Ask me how to use any platform feature, interpret Greeks and risk bounds, or calculate your trade profits!
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Input -->
+      <form class="chat-input-area" onsubmit="handleChatSubmit(event)">
+        <input type="text" id="chat-input" placeholder="Ask about terminal features, Greeks, PnL..." autocomplete="off">
+        <button type="submit" id="chat-send-btn" class="btn-primary">Send</button>
+      </form>
+    </div>
+
+    <!-- Collapsed Launcher Button (Anchored directly below the drawer) -->
+    <div id="chatbot-launcher" class="chatbot-launcher" onclick="toggleChatbot()" title="Open/Close AlphaBot Copilot">
+      <span>🤖</span>
+      <span class="launcher-label">AlphaBot Copilot</span>
+    </div>
+
   </div>
 
   <script src="app.js"></script>
