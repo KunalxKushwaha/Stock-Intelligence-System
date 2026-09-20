@@ -23,6 +23,13 @@ let activeNewsFilter = 'general';
 let newsDisplayLimit = 5;
 let activeTicker = 'AAPL';
 let activeCurrentPrice = 0.0;
+let activeTargetPrice = 0.0;
+let activeLowerBound = 0.0;
+let activeUpperBound = 0.0;
+let activeReturnPct = 0.0;
+let activeVerdict = 'Strong Buy';
+let activeRegime = 'Low Volatility / Bullish';
+
 let orderBookSocket = null;
 let brokerStatusSocket = null;
 
@@ -192,7 +199,6 @@ async function loadOptionsChain(days = 30) {
     cachedOptionsData = data;
 
     const expirySelect = document.getElementById('options-expiry-select');
-    // Ensure dropdown options are populated and preserve active selection
     if (expirySelect.options.length === 0 || expirySelect.dataset.ticker !== activeTicker) {
       expirySelect.dataset.ticker = activeTicker;
       expirySelect.innerHTML = (data.expirations || []).map(exp => `
@@ -207,7 +213,6 @@ async function loadOptionsChain(days = 30) {
     document.getElementById('opt-exp-move').textContent = `±$${data.expected_move.toFixed(2)}`;
     document.getElementById('opt-pcr').textContent = data.put_call_ratio;
 
-    // Render Matrix Rows
     tbody.innerHTML = (data.chain || []).map(row => {
       const c = row.call;
       const p = row.put;
@@ -250,7 +255,6 @@ function renderIvSmile(smilePoints) {
   const ivRange = Math.max(maxIv - minIv, 1.5);
 
   container.innerHTML = smilePoints.map(pt => {
-    // Relative visual normalization: highlights steepness differences across expirations
     const barHeight = Math.round(25 + ((pt.iv - minIv) / ivRange) * 135);
     return `
       <div class="smile-bar-col">
@@ -260,6 +264,178 @@ function renderIvSmile(smilePoints) {
       </div>
     `;
   }).join('');
+}
+
+// ==========================================
+// AlphaBot Copilot: Unified Drag, Clear & Edit
+// ==========================================
+function toggleChatbot() {
+  const win = document.getElementById('chatbot-window');
+  if (win) {
+    win.classList.toggle('hidden');
+    if (!win.classList.contains('hidden')) {
+      document.getElementById('chat-input').focus();
+    }
+  }
+}
+
+function clearChatHistory() {
+  const container = document.getElementById('chat-messages-container');
+  const cName = document.getElementById('val-company-name')?.textContent || activeTicker;
+  container.innerHTML = `
+    <div class="chat-msg bot-msg">
+      <div class="msg-content">
+        Chat cleared! I am actively tracking <strong>${cName} (${activeTicker})</strong> at <strong>$${activeCurrentPrice.toFixed(2)}</strong>. Ask me anything!
+      </div>
+    </div>
+  `;
+}
+
+function editUserMessage(btnElem) {
+  const msgContent = btnElem.closest('.msg-wrapper').querySelector('.msg-content').textContent;
+  const input = document.getElementById('chat-input');
+  input.value = msgContent.trim();
+  input.focus();
+}
+
+function initDraggableChatbot() {
+  const root = document.getElementById('chatbot-root');
+  const win = document.getElementById('chatbot-window');
+  const header = win ? win.querySelector('.chatbot-header') : null;
+  if (!root || !header) return;
+
+  let isDragging = false;
+  let startX, startY, initialLeft, initialTop;
+
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.close-btn') || e.target.closest('.chat-header-btn')) return;
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    const rect = root.getBoundingClientRect();
+    initialLeft = rect.left;
+    initialTop = rect.top;
+
+    root.style.bottom = 'auto';
+    root.style.right = 'auto';
+    root.style.left = `${initialLeft}px`;
+    root.style.top = `${initialTop}px`;
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    let newLeft = initialLeft + dx;
+    let newTop = initialTop + dy;
+
+    const maxLeft = window.innerWidth - root.offsetWidth - 10;
+    const maxTop = window.innerHeight - root.offsetHeight - 10;
+    newLeft = Math.max(10, Math.min(newLeft, maxLeft));
+    newTop = Math.max(10, Math.min(newTop, maxTop));
+
+    root.style.left = `${newLeft}px`;
+    root.style.top = `${newTop}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+}
+
+function sendQuickPrompt(promptText) {
+  document.getElementById('chat-input').value = promptText;
+  handleChatSubmit(new Event('submit'));
+}
+
+async function handleChatSubmit(e) {
+  if (e) e.preventDefault();
+  const inputElem = document.getElementById('chat-input');
+  const userText = inputElem.value.trim();
+  if (!userText) return;
+
+  renderChatMessage('user', userText);
+  inputElem.value = '';
+
+  const messagesContainer = document.getElementById('chat-messages-container');
+  const typingIndicator = document.createElement('div');
+  typingIndicator.className = 'chat-msg bot-msg';
+  typingIndicator.id = 'chat-typing-indicator';
+  typingIndicator.innerHTML = '<div class="msg-content" style="color:var(--text-muted);">AlphaBot is thinking...</div>';
+  messagesContainer.appendChild(typingIndicator);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  const terminalContext = {
+    ticker: activeTicker,
+    company_name: document.getElementById('val-company-name')?.textContent || activeTicker,
+    current_price: activeCurrentPrice,
+    target_price: activeTargetPrice,
+    predicted_return: activeReturnPct,
+    lower_bound: activeLowerBound,
+    upper_bound: activeUpperBound,
+    verdict: activeVerdict,
+    regime: activeRegime
+  };
+
+  try {
+    const res = await fetch('http://localhost:8000/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userText, context: terminalContext })
+    });
+    const data = await res.json();
+    
+    const indicator = document.getElementById('chat-typing-indicator');
+    if (indicator) indicator.remove();
+
+    renderChatMessage('bot', data.reply || "I encountered an error processing your query.", data.follow_ups || []);
+  } catch (err) {
+    console.error("Chat error:", err);
+    const indicator = document.getElementById('chat-typing-indicator');
+    if (indicator) indicator.remove();
+    renderChatMessage('bot', "⚠️ Could not connect to AlphaBot service. Ensure backend is running on port 8000.");
+  }
+}
+
+function renderChatMessage(sender, text, followUps = []) {
+  const container = document.getElementById('chat-messages-container');
+  const msgElem = document.createElement('div');
+  msgElem.className = `chat-msg ${sender}-msg`;
+
+  let html = '';
+  if (sender === 'user') {
+    html = `
+      <div class="msg-wrapper">
+        <div class="msg-content">${text.replace(/\n/g, '<br>')}</div>
+        <button class="msg-edit-btn" onclick="editUserMessage(this)" title="Edit question">✏️</button>
+      </div>
+    `;
+  } else {
+    let followUpsHtml = '';
+    if (followUps && followUps.length > 0) {
+      followUpsHtml = `
+        <div class="msg-follow-ups">
+          <span class="follow-up-label">Suggested follow-ups:</span>
+          <div class="follow-up-chips">
+            ${followUps.map(fu => `<button onclick="sendQuickPrompt('${fu.replace(/'/g, "\\'")}')">${fu}</button>`).join('')}
+          </div>
+        </div>
+      `;
+    }
+    html = `
+      <div class="msg-wrapper">
+        <div class="msg-content">${text.replace(/\n/g, '<br>')}</div>
+      </div>
+      ${followUpsHtml}
+    `;
+  }
+
+  msgElem.innerHTML = html;
+  container.appendChild(msgElem);
+  container.scrollTop = container.scrollHeight;
 }
 
 // ==========================================
@@ -753,6 +929,12 @@ async function fetchIntelligence(tickerInputVal) {
 
     rawHistoricalData = resData.historical_chart || [];
     activeCurrentPrice = resData.current_price;
+    activeTargetPrice = resData.predictions.target_price;
+    activeLowerBound = resData.predictions.lower_bound_price;
+    activeUpperBound = resData.predictions.upper_bound_price;
+    activeReturnPct = resData.predictions.next_return_pct;
+    activeVerdict = resData.recommendation.verdict;
+    activeRegime = resData.market_regime.label;
 
     document.getElementById('val-price').textContent = `$${activeCurrentPrice.toFixed(2)}`;
     document.getElementById('val-company-name').textContent = `${resData.company_name} (${resData.asset_class})`;
@@ -762,9 +944,9 @@ async function fetchIntelligence(tickerInputVal) {
     retElem.textContent = `${retPct >= 0 ? '+' : ''}${retPct}%`;
     retElem.style.color = retPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 
-    document.getElementById('val-target').textContent = `$${resData.predictions.target_price.toFixed(2)}`;
-    document.getElementById('val-lower').textContent = `$${resData.predictions.lower_bound_price.toFixed(2)}`;
-    document.getElementById('val-upper').textContent = `$${resData.predictions.upper_bound_price.toFixed(2)}`;
+    document.getElementById('val-target').textContent = `$${activeTargetPrice.toFixed(2)}`;
+    document.getElementById('val-lower').textContent = `$${activeLowerBound.toFixed(2)}`;
+    document.getElementById('val-upper').textContent = `$${activeUpperBound.toFixed(2)}`;
     updateWatchlistStarState();
 
     const rec = resData.recommendation;
@@ -807,4 +989,5 @@ function selectTicker(symbol) { fetchIntelligence(symbol); }
 window.addEventListener('DOMContentLoaded', () => {
   fetchIntelligence('AAPL');
   connectBrokerStatusStream();
+  initDraggableChatbot();
 });

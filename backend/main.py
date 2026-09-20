@@ -25,6 +25,7 @@ from tensorflow.keras.models import load_model  # type: ignore
 from ML.feature_engineering.build_features import engineer_features  
 from data_pipeline.news_data.fetcher import fetch_company_news 
 from recommendation_engine.engine import compute_hybrid_recommendation
+from chatbot.service import process_terminal_chat
 
 app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.9.3")
 
@@ -61,9 +62,6 @@ try:
 except Exception as e:
     print(f"⚠️ Hybrid model load warning: {e}")
 
-# ==========================================
-# Options Analytics & Black-Scholes Greeks Engine
-# ==========================================
 def norm_cdf(x: float) -> float:
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
@@ -170,9 +168,26 @@ class OrderRequest(BaseModel):
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
 
+class ChatRequest(BaseModel):
+    message: str
+    context: Optional[dict] = None
+
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "version": "2.9.3", "active_hybrid_architecture": active_hybrid_architecture}
+
+@app.post("/api/chat")
+def handle_chat_endpoint(req: ChatRequest):
+    try:
+        terminal_ctx = req.context or {}
+        res = process_terminal_chat(req.message, terminal_ctx)
+        return {
+            "status": "success",
+            "reply": res.get("reply", ""),
+            "follow_ups": res.get("follow_ups", [])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stock/analyze")
 def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str = "balanced"):
@@ -293,9 +308,6 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==========================================
-# Real-Time Options Chains & Greeks Endpoint (Time-Varying Smile)
-# ==========================================
 @app.get("/api/options/chain")
 def get_options_chain(ticker: str = "AAPL", days: int = 30):
     clean_ticker = ticker.upper().strip()
@@ -316,11 +328,7 @@ def get_options_chain(ticker: str = "AAPL", days: int = 30):
     T = days_clamped / 365.0
     r = 0.045
 
-    # 1. Term Structure: Short expirations have higher baseline event volatility
     term_atm_iv = round(0.24 + 0.07 / math.sqrt(days_clamped / 14.0 + 0.5), 4)
-
-    # 2. Skew & Curvature scaling: scales inversely with sqrt(T)
-    # Short duration (7d) = steep smile; Long duration (90d) = flattens out
     skew_strength = 0.12 / math.sqrt(T * 3.5)
     curvature_strength = 0.38 / math.sqrt(T * 3.5)
 
@@ -339,7 +347,6 @@ def get_options_chain(ticker: str = "AAPL", days: int = 30):
         strike = round(atm_strike + (idx * strike_step), 2)
         moneyness = (strike - spot) / spot
         
-        # Strike IV depends dynamically on moneyness AND expiration T
         strike_iv = max(0.08, term_atm_iv + curvature_strength * (moneyness ** 2) - skew_strength * moneyness)
         greeks = calculate_bs_greeks(spot, strike, T, r, strike_iv)
 

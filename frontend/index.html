@@ -276,7 +276,6 @@
       </div>
       <div class="modal-body">
         
-        <!-- Options Control Stats Bar -->
         <div class="options-top-bar">
           <div class="opt-control-group">
             <label>Expiration Date:</label>
@@ -300,13 +299,11 @@
           </div>
         </div>
 
-        <!-- Options View Switcher Tabs -->
         <div class="modal-tabs" style="margin-top: 10px;">
           <button onclick="switchOptionsTab('matrix', this)" class="port-tab-btn active" id="tab-btn-opt-matrix">Options Chain Matrix</button>
           <button onclick="switchOptionsTab('smile', this)" class="port-tab-btn" id="tab-btn-opt-smile">Implied Volatility (IV) Smile</button>
         </div>
 
-        <!-- Options Chain Matrix Table View -->
         <div id="options-matrix-view">
           <div class="options-table-wrapper">
             <table class="options-table">
@@ -339,7 +336,6 @@
           </div>
         </div>
 
-        <!-- Implied Volatility Smile Visualizer View -->
         <div id="options-smile-view" class="hidden">
           <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">IMPLIED VOLATILITY SMILE & SKEW (STRIKE VS. IV%)</div>
           <div id="options-smile-container" class="iv-smile-grid"></div>
@@ -503,6 +499,57 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Unified Draggable Chatbot Root -->
+  <div id="chatbot-root" class="chatbot-root">
+    
+    <!-- Chat Drawer Window (Positioned on top of launcher) -->
+    <div id="chatbot-window" class="chatbot-window hidden">
+      <div class="chatbot-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">🤖</span>
+          <div>
+            <h4>AlphaBot Copilot</h4>
+            <span class="bot-badge">Terminal Knowledge & Risk Engine</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button onclick="clearChatHistory()" class="chat-header-btn" title="Clear Chat History">🗑️</button>
+          <button onclick="toggleChatbot()" class="close-btn" style="color: #fff; font-size: 20px;">&times;</button>
+        </div>
+      </div>
+
+      <!-- Quick Preset Prompt Suggestions -->
+      <div class="chat-quick-suggestions">
+        <button onclick="sendQuickPrompt('Where do I write custom technical indicators?')">⚡ Custom Indicators</button>
+        <button onclick="sendQuickPrompt('Calculate my PnL if I buy 25 shares of the active stock')">💰 25 Shares PnL</button>
+        <button onclick="sendQuickPrompt('Explain the 90% Conformal Safety Floor')">🛡️ 90% Risk Bounds</button>
+        <button onclick="sendQuickPrompt('How do I run a backtest simulation?')">📈 Backtesting</button>
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="chat-messages-container" class="chat-messages-container">
+        <div class="chat-msg bot-msg">
+          <div class="msg-content">
+            Hello! I am <strong>AlphaBot</strong>, your quantitative terminal copilot. Ask me how to use any platform feature, interpret Greeks and risk bounds, or calculate your trade profits!
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Input -->
+      <form class="chat-input-area" onsubmit="handleChatSubmit(event)">
+        <input type="text" id="chat-input" placeholder="Ask about terminal features, Greeks, PnL..." autocomplete="off">
+        <button type="submit" id="chat-send-btn" class="btn-primary">Send</button>
+      </form>
+    </div>
+
+    <!-- Collapsed Launcher Button (Anchored directly below the drawer) -->
+    <div id="chatbot-launcher" class="chatbot-launcher" onclick="toggleChatbot()" title="Open/Close AlphaBot Copilot">
+      <span>🤖</span>
+      <span class="launcher-label">AlphaBot Copilot</span>
+    </div>
+
   </div>
 
   <script src="app.js"></script>
