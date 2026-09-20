@@ -252,74 +252,356 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str 
 def run_backtest(ticker: str = "AAPL", initial_capital: float = 10000.0):
     try:
         clean_ticker = ticker.upper().strip()
-        asset_info = ASSET_DIRECTORY.get(clean_ticker, {"name": clean_ticker, "class": "Equities", "base": 150.0})
+
+        asset_info = ASSET_DIRECTORY.get(
+            clean_ticker,
+            {"name": clean_ticker, "class": "Equities", "base": 150.0}
+        )
         base_p = asset_info["base"]
-        
+
+        # ------------------------------------------
+        # 1. Load historical feature data
+        # ------------------------------------------
         df = None
+
         try:
-            df = engineer_features(ticker="AAPL" if asset_info["class"] != "Equities" else clean_ticker)
+            df = engineer_features(
+                ticker="AAPL"
+                if asset_info["class"] != "Equities"
+                else clean_ticker
+            )
         except Exception:
             pass
 
+        # Development fallback if historical data is unavailable
         if df is None or df.empty:
-            dates = pd.date_range(end=pd.Timestamp.today(), periods=180, freq='B')
-            prices = base_p + np.cumsum(np.random.normal(0.2, base_p * 0.01, 180))
-            df = pd.DataFrame({'Date': dates, 'Close': prices, 'RSI_14': 55.0})
-        else:
-            last_actual = float(df['Close'].iloc[-1])
-            if last_actual > 0:
-                df['Close'] = df['Close'] * (base_p / last_actual)
-            df['Date'] = pd.date_range(end=pd.Timestamp.today(), periods=len(df), freq='B')
+            dates = pd.date_range(
+                end=pd.Timestamp.today(),
+                periods=180,
+                freq="B"
+            )
 
-        df = df.tail(180).copy()
-        df['Daily_Return'] = df['Close'].pct_change().fillna(0)
-        df['Signal'] = np.where((df['RSI_14'] > 35) & (df['RSI_14'] < 68), 1, 0)
-        df['Strategy_Return'] = df['Signal'].shift(1).fillna(0) * df['Daily_Return']
-        
-        df['Buy_Hold_Equity'] = initial_capital * (1 + df['Daily_Return']).cumprod()
-        df['Strategy_Equity'] = initial_capital * (1 + df['Strategy_Return']).cumprod()
+            prices = base_p + np.cumsum(
+                np.random.normal(0.2, base_p * 0.01, 180)
+            )
 
-        final_bh = float(df['Buy_Hold_Equity'].iloc[-1])
-        final_strat = float(df['Strategy_Equity'].iloc[-1])
-        
-        bh_return_pct = ((final_bh - initial_capital) / initial_capital) * 100
-        strat_return_pct = ((final_strat - initial_capital) / initial_capital) * 100
-
-        strat_vol = float(df['Strategy_Return'].std() * np.sqrt(252) * 100)
-        bh_vol = float(df['Daily_Return'].std() * np.sqrt(252) * 100)
-        
-        strat_sharpe = round((strat_return_pct / max(1.0, strat_vol)), 2)
-        bh_sharpe = round((bh_return_pct / max(1.0, bh_vol)), 2)
-
-        chart_curve = []
-        for _, row in df.iterrows():
-            d_str = str(row['Date']).split('T')[0]
-            chart_curve.append({
-                "date": d_str,
-                "strategy": round(float(row['Strategy_Equity']), 2),
-                "benchmark": round(float(row['Buy_Hold_Equity']), 2)
+            df = pd.DataFrame({
+                "Date": dates,
+                "Close": prices,
+                "RSI_14": 55.0
             })
 
+        else:
+            last_actual = float(df["Close"].iloc[-1])
+
+            if last_actual > 0:
+                df["Close"] = df["Close"] * (base_p / last_actual)
+
+            df["Date"] = pd.date_range(
+                end=pd.Timestamp.today(),
+                periods=len(df),
+                freq="B"
+            )
+
+        # ------------------------------------------
+        # 2. Prepare historical period
+        # ------------------------------------------
+        df = df.tail(180).copy()
+
+        df["Daily_Return"] = (
+            df["Close"].pct_change().fillna(0)
+        )
+
+        # ------------------------------------------
+        # 3. Existing RSI strategy
+        # ------------------------------------------
+        df["Signal"] = np.where(
+            (df["RSI_14"] > 35) &
+            (df["RSI_14"] < 68),
+            1,
+            0
+        )
+
+        # Shift signal by one day to avoid look-ahead bias
+        df["Strategy_Return"] = (
+            df["Signal"].shift(1).fillna(0)
+            * df["Daily_Return"]
+        )
+
+        # ------------------------------------------
+        # 4. Equity curves
+        # ------------------------------------------
+        df["Buy_Hold_Equity"] = (
+            initial_capital
+            * (1 + df["Daily_Return"]).cumprod()
+        )
+
+        df["Strategy_Equity"] = (
+            initial_capital
+            * (1 + df["Strategy_Return"]).cumprod()
+        )
+
+        # ------------------------------------------
+        # 5. Basic performance
+        # ------------------------------------------
+        final_bh = float(df["Buy_Hold_Equity"].iloc[-1])
+        final_strat = float(df["Strategy_Equity"].iloc[-1])
+
+        bh_return_pct = (
+            (final_bh - initial_capital)
+            / initial_capital
+        ) * 100
+
+        strat_return_pct = (
+            (final_strat - initial_capital)
+            / initial_capital
+        ) * 100
+
+        # ------------------------------------------
+        # 6. Volatility
+        # ------------------------------------------
+        strat_vol = float(
+            df["Strategy_Return"].std()
+            * np.sqrt(252)
+            * 100
+        )
+
+        bh_vol = float(
+            df["Daily_Return"].std()
+            * np.sqrt(252)
+            * 100
+        )
+
+        # ------------------------------------------
+        # 7. Sharpe Ratio
+        # ------------------------------------------
+        strategy_daily_mean = df["Strategy_Return"].mean()
+        strategy_daily_std = df["Strategy_Return"].std()
+
+        benchmark_daily_mean = df["Daily_Return"].mean()
+        benchmark_daily_std = df["Daily_Return"].std()
+
+        if strategy_daily_std > 0:
+            strat_sharpe = round(
+                (strategy_daily_mean / strategy_daily_std)
+                * np.sqrt(252),
+                2
+            )
+        else:
+            strat_sharpe = 0.0
+
+        if benchmark_daily_std > 0:
+            bh_sharpe = round(
+                (benchmark_daily_mean / benchmark_daily_std)
+                * np.sqrt(252),
+                2
+            )
+        else:
+            bh_sharpe = 0.0
+
+        # ------------------------------------------
+        # 8. Drawdown analysis
+        # ------------------------------------------
+        strategy_running_max = (
+            df["Strategy_Equity"].cummax()
+        )
+
+        df["Strategy_Drawdown"] = (
+            (
+                df["Strategy_Equity"]
+                / strategy_running_max
+            ) - 1
+        ) * 100
+
+        max_drawdown_pct = float(
+            df["Strategy_Drawdown"].min()
+        )
+
+        # ------------------------------------------
+        # 9. Trade statistics
+        # ------------------------------------------
+        position_change = df["Signal"].diff().fillna(
+            df["Signal"]
+        )
+
+        trade_entries = df.index[
+            position_change > 0
+        ]
+
+        trade_returns = []
+
+        for entry_index in trade_entries:
+            subsequent_rows = df.loc[
+                entry_index:
+            ]
+
+            exit_rows = subsequent_rows[
+                subsequent_rows["Signal"] == 0
+            ]
+
+            if not exit_rows.empty:
+                exit_index = exit_rows.index[0]
+
+                entry_price = float(
+                    df.loc[entry_index, "Close"]
+                )
+
+                exit_price = float(
+                    df.loc[exit_index, "Close"]
+                )
+
+                if entry_price > 0:
+                    trade_return = (
+                        (exit_price - entry_price)
+                        / entry_price
+                    ) * 100
+
+                    trade_returns.append(trade_return)
+
+        total_trades = len(trade_returns)
+        winning_trades = sum(
+            1 for value in trade_returns
+            if value > 0
+        )
+        losing_trades = sum(
+            1 for value in trade_returns
+            if value < 0
+        )
+
+        if total_trades > 0:
+            win_rate_pct = (
+                winning_trades
+                / total_trades
+            ) * 100
+
+            average_trade_return_pct = (
+                sum(trade_returns)
+                / total_trades
+            )
+
+            best_trade_pct = max(trade_returns)
+            worst_trade_pct = min(trade_returns)
+
+        else:
+            win_rate_pct = 0.0
+            average_trade_return_pct = 0.0
+            best_trade_pct = 0.0
+            worst_trade_pct = 0.0
+
+        # ------------------------------------------
+        # 10. Equity + drawdown chart data
+        # ------------------------------------------
+        chart_curve = []
+
+        for _, row in df.iterrows():
+            d_str = str(row["Date"]).split("T")[0]
+
+            chart_curve.append({
+                "date": d_str,
+                "strategy": round(
+                    float(row["Strategy_Equity"]),
+                    2
+                ),
+                "benchmark": round(
+                    float(row["Buy_Hold_Equity"]),
+                    2
+                ),
+                "drawdown": round(
+                    float(row["Strategy_Drawdown"]),
+                    2
+                )
+            })
+
+        # ------------------------------------------
+        # 11. API response
+        # ------------------------------------------
         return {
             "ticker": clean_ticker,
             "initial_capital": initial_capital,
+
             "metrics": {
-                "strategy_final_value": round(final_strat, 2),
-                "strategy_return_pct": round(strat_return_pct, 2),
+                "strategy_final_value": round(
+                    final_strat,
+                    2
+                ),
+
+                "strategy_return_pct": round(
+                    strat_return_pct,
+                    2
+                ),
+
                 "strategy_sharpe": strat_sharpe,
-                "strategy_volatility_pct": round(strat_vol, 2),
-                "benchmark_final_value": round(final_bh, 2),
-                "benchmark_return_pct": round(bh_return_pct, 2),
+
+                "strategy_volatility_pct": round(
+                    strat_vol,
+                    2
+                ),
+
+                "strategy_max_drawdown_pct": round(
+                    max_drawdown_pct,
+                    2
+                ),
+
+                "total_trades": total_trades,
+
+                "winning_trades": winning_trades,
+
+                "losing_trades": losing_trades,
+
+                "win_rate_pct": round(
+                    win_rate_pct,
+                    2
+                ),
+
+                "average_trade_return_pct": round(
+                    average_trade_return_pct,
+                    2
+                ),
+
+                "best_trade_pct": round(
+                    best_trade_pct,
+                    2
+                ),
+
+                "worst_trade_pct": round(
+                    worst_trade_pct,
+                    2
+                ),
+
+                "benchmark_final_value": round(
+                    final_bh,
+                    2
+                ),
+
+                "benchmark_return_pct": round(
+                    bh_return_pct,
+                    2
+                ),
+
                 "benchmark_sharpe": bh_sharpe,
-                "benchmark_volatility_pct": round(bh_vol, 2),
-                "outperformance_pct": round(strat_return_pct - bh_return_pct, 2)
+
+                "benchmark_volatility_pct": round(
+                    bh_vol,
+                    2
+                ),
+
+                "outperformance_pct": round(
+                    strat_return_pct
+                    - bh_return_pct,
+                    2
+                )
             },
+
             "equity_curve": chart_curve
         }
+
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @app.get("/api/broker/account")
 def get_broker_account():
