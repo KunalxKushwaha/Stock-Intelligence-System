@@ -16,8 +16,20 @@
     
     <!-- BRAND -->
     <div class="nav-brand">
-      <span class="brand-icon">⚡</span>
-      <h1>AlphaTerminal <span class="badge-version">v2.9.1</span></h1>
+      <div class="brand-logo">
+        <span class="brand-logo-glow"></span>
+        <span class="brand-logo-symbol">⚡</span>
+      </div>
+
+      <div class="brand-text">
+        <div class="brand-title-line">
+          <h1>AlphaTerminal</h1>
+          <span class="badge-version">v2.9.1</span>
+        </div>
+        <span class="brand-subtitle">
+          AI Stock Intelligence
+        </span>
+      </div>
     </div>
 
 
@@ -53,13 +65,159 @@
       </button>
     </form>
 
-    <div class="nav-actions">
-      <button onclick="openStocksModal()" class="btn-secondary" id="tour-asset-dir">📂 Asset Directory</button>
-      <button onclick="openBacktestModal()" class="btn-secondary" id="tour-backtest">📈 Backtest</button>
-      <button onclick="openBrokerModal()" class="btn-secondary" id="broker-btn">⚡ Broker Router</button>
-      <button onclick="openPortfolioModal()" class="btn-secondary" id="portfolio-btn">📊 Portfolio Sync</button>
-      <button onclick="startTour()" class="btn-secondary">🎓 Tour</button>
-      <button onclick="toggleTheme()" class="btn-secondary" id="theme-btn">🌙 Dark</button>
+
+    <!-- RIGHT SIDE -->
+    <div class="nav-user-actions">
+
+      <div
+        class="account-menu-wrap"
+        id="account-menu-wrap"
+      >
+
+        <button
+          onclick="openAuthModal('login')"
+          class="account-trigger"
+          id="auth-nav-btn"
+        >
+          <span class="account-icon">👤</span>
+
+          <span class="account-trigger-label">
+            Sign In
+          </span>
+
+          <span class="account-chevron">
+            ⌄
+          </span>
+        </button>
+
+
+        <!-- ACCOUNT POPOVER -->
+        <div
+          id="account-popover"
+          class="account-popover hidden"
+        >
+
+          <div class="account-profile">
+
+            <div
+              class="account-avatar"
+              id="account-avatar"
+            >
+              A
+            </div>
+
+            <div class="account-information">
+
+              <strong id="account-name">
+                Account
+              </strong>
+
+              <span id="account-email">
+                Not signed in
+              </span>
+
+            </div>
+
+          </div>
+
+          <div class="account-divider"></div>
+
+          <button
+            class="account-logout"
+            onclick="logout()"
+          >
+            <span>↪</span>
+            Sign out
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <!-- THEME -->
+      <button
+        onclick="toggleTheme()"
+        class="theme-btn"
+        id="theme-btn"
+      >
+        🌙
+        <span>Dark</span>
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- TOOLBAR -->
+  <div class="navbar-toolbar">
+
+    <div class="toolbar-inner">
+
+      <span class="toolbar-label">
+        Terminal
+      </span>
+
+      <div class="toolbar-divider"></div>
+
+
+      <button
+        onclick="openStocksModal()"
+        class="toolbar-btn"
+        id="tour-asset-dir"
+      >
+        <span class="toolbar-icon">📂</span>
+        <span>Asset Directory</span>
+      </button>
+
+
+      <button
+        onclick="openBacktestModal()"
+        class="toolbar-btn"
+        id="tour-backtest"
+      >
+        <span class="toolbar-icon">📈</span>
+        <span>Backtest</span>
+      </button>
+
+
+      <button
+        onclick="openBrokerModal()"
+        class="toolbar-btn"
+        id="broker-btn"
+      >
+        <span class="toolbar-icon">⚡</span>
+        <span>Broker Router</span>
+      </button>
+
+
+      <button
+        onclick="openPortfolioModal()"
+        class="toolbar-btn"
+        id="portfolio-btn"
+      >
+        <span class="toolbar-icon">📊</span>
+        <span>Portfolio Sync</span>
+      </button>
+
+
+      <button
+        onclick="startTour()"
+        class="toolbar-btn"
+      >
+        <span class="toolbar-icon">🎓</span>
+        <span>Tour</span>
+      </button>
+
+
+      <div class="toolbar-spacer"></div>
+
+      <div class="market-status">
+        <span class="status-dot"></span>
+        <span>Market Intelligence Online</span>
+      </div>
+
     </div>
 
   </div>
@@ -93,7 +251,7 @@
       <div class="asset-identity" id="tour-step-1">
         <h2 id="val-company-name">Apple Inc. (Equities)</h2>
         <div class="price-row">
-          <span class="current-price" id="val-price">$305.59</span>
+          <span class="current-price" id="val-price">$223.96</span>
           <span class="price-change-badge" id="val-return">+2.45%</span>
           <button id="watchlist-toggle-btn" class="watchlist-star-btn" onclick="toggleCurrentWatchlist()" title="Save to Watchlist">☆</button>
         </div>
@@ -102,17 +260,17 @@
       <div class="prediction-cards-grid">
         <div class="pred-card" id="tour-step-2">
           <span class="card-label">Predicted Target Return</span>
-          <span class="card-value" id="val-target">$312.40</span>
+          <span class="card-value" id="val-target">$229.40</span>
           <span class="card-sub">Next-Day Horizon</span>
         </div>
         <div class="pred-card" id="tour-step-3">
           <span class="card-label">90% Safety Floor (5th Pct)</span>
-          <span class="card-value text-risk" id="val-lower">$298.10</span>
+          <span class="card-value text-risk" id="val-lower">$218.10</span>
           <span class="card-sub">Conformal Quantile Risk</span>
         </div>
         <div class="pred-card" id="tour-step-4">
           <span class="card-label">90% Upside Ceiling (95th Pct)</span>
-          <span class="card-value text-gain" id="val-upper">$324.50</span>
+          <span class="card-value text-gain" id="val-upper">$238.50</span>
           <span class="card-sub">Conformal Quantile Margin</span>
         </div>
       </div>
@@ -270,8 +428,8 @@
           </div>
           <div class="orderbook-container">
             <div class="ob-header-stats">
-              <div><span>Bid:</span> <strong id="ob-bid" class="text-gain">$305.50</strong></div>
-              <div><span>Ask:</span> <strong id="ob-ask" class="text-risk">$305.58</strong></div>
+              <div><span>Bid:</span> <strong id="ob-bid" class="text-gain">$223.90</strong></div>
+              <div><span>Ask:</span> <strong id="ob-ask" class="text-risk">$223.98</strong></div>
               <div><span>Spread:</span> <strong id="ob-spread">$0.08</strong></div>
             </div>
             <div class="ob-tables-grid">
@@ -291,94 +449,6 @@
 
     </div>
   </main>
-
-  <!-- Real-Time Options Chains & Greeks Analytics Modal -->
-  <div id="options-modal" class="modal hidden">
-    <div class="modal-content options-modal-content">
-      <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 20px;">⛓️</span>
-          <div>
-            <h3 id="options-modal-title">Options Chains & Greeks Analytics (AAPL)</h3>
-            <p style="font-size: 12px; color: var(--text-muted);">Real-time Black-Scholes Greeks, Implied Volatility Smiles, & Multi-Strike Matrices</p>
-          </div>
-        </div>
-        <button onclick="closeOptionsModal()" class="close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        
-        <!-- Options Control Stats Bar -->
-        <div class="options-top-bar">
-          <div class="opt-control-group">
-            <label>Expiration Date:</label>
-            <select id="options-expiry-select" onchange="onOptionsExpiryChange()"></select>
-          </div>
-          <div class="opt-stat-item">
-            <span>Spot Price:</span>
-            <strong id="opt-spot-price">$305.59</strong>
-          </div>
-          <div class="opt-stat-item">
-            <span>ATM Implied Vol (IV):</span>
-            <strong id="opt-atm-iv" class="text-gain">28.0%</strong>
-          </div>
-          <div class="opt-stat-item">
-            <span>Expected Move (±):</span>
-            <strong id="opt-exp-move">$14.20</strong>
-          </div>
-          <div class="opt-stat-item">
-            <span>Put/Call Ratio:</span>
-            <strong id="opt-pcr">0.88</strong>
-          </div>
-        </div>
-
-        <!-- Options View Switcher Tabs -->
-        <div class="modal-tabs" style="margin-top: 10px;">
-          <button onclick="switchOptionsTab('matrix', this)" class="port-tab-btn active" id="tab-btn-opt-matrix">Options Chain Matrix</button>
-          <button onclick="switchOptionsTab('smile', this)" class="port-tab-btn" id="tab-btn-opt-smile">Implied Volatility (IV) Smile</button>
-        </div>
-
-        <!-- Options Chain Matrix Table View -->
-        <div id="options-matrix-view">
-          <div class="options-table-wrapper">
-            <table class="options-table">
-              <thead>
-                <tr class="opt-super-header">
-                  <th colspan="6" class="call-header-group">CALLS</th>
-                  <th class="strike-header-col">STRIKE</th>
-                  <th colspan="6" class="put-header-group">PUTS</th>
-                </tr>
-                <tr class="opt-sub-header">
-                  <th>OI</th>
-                  <th>Delta</th>
-                  <th>Theta</th>
-                  <th>IV</th>
-                  <th>Bid</th>
-                  <th>Ask</th>
-                  <th class="strike-cell-header">Price</th>
-                  <th>Bid</th>
-                  <th>Ask</th>
-                  <th>IV</th>
-                  <th>Delta</th>
-                  <th>Theta</th>
-                  <th>OI</th>
-                </tr>
-              </thead>
-              <tbody id="options-table-body">
-                <tr><td colspan="13" style="text-align:center; padding: 20px;">Loading institutional options chains...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Implied Volatility Smile Visualizer View -->
-        <div id="options-smile-view" class="hidden">
-          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">IMPLIED VOLATILITY SMILE & SKEW (STRIKE VS. IV%)</div>
-          <div id="options-smile-container" class="iv-smile-grid"></div>
-        </div>
-
-      </div>
-    </div>
-  </div>
 
   <!-- Automated Backtesting Framework Modal -->
   <div id="backtest-modal" class="modal hidden">
@@ -578,6 +648,21 @@
     </div>
   </div>
 
+  <div id="fact-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔍 Rumor & Fact-Check Audit</h3>
+        <button onclick="closeFactModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h4 id="fact-modal-claim" style="font-weight: 500; margin-bottom: 10px; font-size: 15px;"></h4>
+        <p>Publisher: <strong id="fact-modal-publisher"></strong></p>
+        <p>Rating: <strong id="fact-modal-rating" style="color: var(--accent-red);"></strong></p>
+        <p id="fact-modal-desc" style="font-size: 13px; color: var(--text-muted); margin-top: 10px;"></p>
+      </div>
+    </div>
+  </div>
+
   <div id="tour-modal" class="modal hidden">
     <div class="modal-content tour-modal-content">
       <div class="modal-header">
@@ -587,7 +672,7 @@
       <div class="modal-body">
         <p id="tour-description" style="font-size: 14px; line-height: 1.5; margin-bottom: 16px;"></p>
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span id="tour-step-number" style="font-size: 12px; color: var(--text-muted);">Step 1 of 12</span>
+          <span id="tour-step-number" style="font-size: 12px; color: var(--text-muted);">Step 1 of 11</span>
           <div style="display: flex; gap: 8px;">
             <button onclick="prevTourStep()" id="tour-prev-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 13px;">Previous</button>
             <button onclick="nextTourStep()" id="tour-next-btn" class="btn-primary" style="padding: 6px 12px; font-size: 13px;">Next</button>
@@ -598,38 +683,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
-  <script>
-document.addEventListener("DOMContentLoaded", () => {
-
-  if (!window.gsap) return;
-
-  gsap.from(".nav-brand", {
-    x: -25,
-    opacity: 0,
-    duration: 0.65,
-    ease: "power3.out"
-  });
-
-  gsap.from(".search-form", {
-    y: -12,
-    opacity: 0,
-    duration: 0.6,
-    delay: 0.08,
-    ease: "power3.out"
-  });
-
-  gsap.from(".nav-actions > *", {
-    y: -10,
-    opacity: 0,
-    duration: 0.45,
-    stagger: 0.06,
-    delay: 0.15,
-    ease: "power3.out"
-  });
-
-});
-</script>
   <script src="app.js"></script>
   <script src="auth.js"></script>
+  <script src="animations.js"></script>
 </body>
 </html>
