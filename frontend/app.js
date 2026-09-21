@@ -461,6 +461,28 @@ async function runBacktestSimulation() {
     const data = await res.json();
     const m = data.metrics;
 
+    // Performance Analytics
+    document.getElementById('bt-max-drawdown').textContent =
+      `${m.strategy_max_drawdown_pct}%`;
+
+    document.getElementById('bt-total-trades').textContent =
+      m.total_trades;
+
+    document.getElementById('bt-win-rate').textContent =
+      `${m.win_rate_pct}%`;
+
+    document.getElementById('bt-trade-record').textContent =
+      `${m.winning_trades} Wins / ${m.losing_trades} Losses`;
+
+    document.getElementById('bt-avg-trade').textContent =
+      `${m.average_trade_return_pct >= 0 ? '+' : ''}${m.average_trade_return_pct}%`;
+
+    document.getElementById('bt-best-trade').textContent =
+      `${m.best_trade_pct >= 0 ? '+' : ''}${m.best_trade_pct}%`;
+
+    document.getElementById('bt-worst-trade').textContent =
+      `${m.worst_trade_pct >= 0 ? '+' : ''}${m.worst_trade_pct}%`;
+
     document.getElementById('bt-strat-val').textContent = `$${m.strategy_final_value.toLocaleString()}`;
     document.getElementById('bt-strat-ret').textContent = `${m.strategy_return_pct >= 0 ? '+' : ''}${m.strategy_return_pct}% Return`;
     document.getElementById('bt-bh-val').textContent = `$${m.benchmark_final_value.toLocaleString()}`;
