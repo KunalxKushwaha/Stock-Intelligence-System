@@ -6,7 +6,12 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from core.security import create_access_token, get_current_user, hash_password, verify_password
+from backend.core.security import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    verify_password,
+)
 from db.mongodb import get_db
 from schemas.user_schemas import TokenResponse, UserLogin, UserOut, UserRegister
 

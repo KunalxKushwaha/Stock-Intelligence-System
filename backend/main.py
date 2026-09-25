@@ -28,6 +28,9 @@ from tensorflow.keras.models import load_model  # type: ignore
 from ML.feature_engineering.build_features import engineer_features  
 from data_pipeline.news_data.fetcher import fetch_company_news 
 from recommendation_engine.engine import compute_hybrid_recommendation
+from db.mongodb import connect_to_mongo, close_mongo_connection
+from api.auth import router as auth_router
+from api.sync import router as sync_router
 
 app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.9.3")
 
@@ -51,15 +54,26 @@ async def on_shutdown():
     await close_mongo_connection()
 
 models_dir = root_dir / 'ML' / 'models'
-
 best_model, hmm_model = None, None
 try:
     best_model = joblib.load(models_dir / 'best_stock_model.pkl')
     hmm_model = joblib.load(models_dir / 'hmm_regime_model.pkl')
-    print("✅ Loaded XGBoost & HMM models.")
+    print(f"✅ Loaded XGBoost & HMM models. (best_model type: {type(best_model).__name__})")
 except Exception as e:
-    print(f"⚠️ XGBoost/HMM load warning: {e}")
+    print(f"⚠️ Model loading error: {e}")
 
+def predict_mid_quantile(X):
+    """Returns the mid/median prediction as a flat array, one value per
+    input row — works whether best_model is a dict of 3 models or a
+    single quantile model."""
+    if isinstance(best_model, dict):
+        return best_model['mid'].predict(X)
+    preds = np.asarray(best_model.predict(X))
+    if preds.ndim == 1:
+        return preds
+    if preds.shape[1] == 1:
+        return preds[:, 0]
+    return preds[:, preds.shape[1] // 2]
 hybrid_nn_model = None
 active_hybrid_architecture = "Empirically Benchmarked GRU/LSTM Hybrid"
 try:
@@ -75,6 +89,9 @@ try:
 except Exception as e:
     print(f"⚠️ Hybrid model load warning: {e}")
 
+# ==========================================
+# Options Analytics & Black-Scholes Greeks Engine
+# ==========================================
 def norm_cdf(x: float) -> float:
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
@@ -181,26 +198,9 @@ class OrderRequest(BaseModel):
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
 
-class ChatRequest(BaseModel):
-    message: str
-    context: Optional[dict] = None
-
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "version": "2.9.3", "active_hybrid_architecture": active_hybrid_architecture}
-
-@app.post("/api/chat")
-def handle_chat_endpoint(req: ChatRequest):
-    try:
-        terminal_ctx = req.context or {}
-        res = process_terminal_chat(req.message, terminal_ctx)
-        return {
-            "status": "success",
-            "reply": res.get("reply", ""),
-            "follow_ups": res.get("follow_ups", [])
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stock/analyze")
 def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str = "balanced"):
@@ -321,6 +321,92 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+# ==========================================
+# Real-Time Options Chains & Greeks Endpoint (Time-Varying Smile)
+# ==========================================
+@app.get("/api/stock/explain")
+def explain_stock(ticker: str = "AAPL"):
+    """
+    SHAP feature-attribution breakdown for the XGBoost quantile model's
+    'mid' (50th percentile) prediction — explains WHY the model produced
+    the return forecast it did, not just what the forecast is.
+    """
+    if best_model is None:
+        raise HTTPException(status_code=503, detail="Model is not loaded.")
+
+    clean_ticker = ticker.upper().strip()
+    asset_info = ASSET_DIRECTORY.get(clean_ticker, {"name": clean_ticker, "class": "Equities", "base": 150.0})
+
+    df = None
+    try:
+        df = engineer_features(ticker="AAPL" if asset_info["class"] != "Equities" else clean_ticker)
+    except Exception:
+        pass
+
+    base_p = asset_info["base"]
+    if df is None or df.empty:
+        dates = pd.date_range(end=pd.Timestamp.today(), periods=120, freq='B')
+        prices = base_p + np.cumsum(np.random.normal(0, base_p * 0.005, 120))
+        df = pd.DataFrame({
+            'Date': dates, 'Close': prices, 'VIX_Close': 16.5, 'Log_Return': 0.001,
+            'RSI_14': 52.0, 'MACD': 1.1, 'SMA_Ratio': 1.02,
+            'BB_Lower': prices * 0.95, 'BB_Upper': prices * 1.05
+        })
+    else:
+        last_actual = float(df['Close'].iloc[-1])
+        if last_actual > 0:
+            scale_ratio = base_p / last_actual
+            df['Close'] = df['Close'] * scale_ratio
+            df['BB_Upper'] = df['BB_Upper'] * scale_ratio
+            df['BB_Lower'] = df['BB_Lower'] * scale_ratio
+
+    latest_row = df.iloc[-1:]
+    feature_cols = ['Close', 'VIX_Close', 'Log_Return', 'RSI_14', 'MACD', 'SMA_Ratio', 'BB_Lower', 'BB_Upper']
+    for col in feature_cols:
+        if col not in latest_row.columns:
+            latest_row[col] = 0.0
+    X_latest = latest_row[feature_cols]
+
+    FEATURE_LABELS = {
+        'Close': 'Current Price',
+        'VIX_Close': 'Market Volatility (VIX)',
+        'Log_Return': 'Recent Price Momentum',
+        'RSI_14': 'RSI Momentum (14-day)',
+        'MACD': 'MACD Trend Signal',
+        'SMA_Ratio': 'Price vs Moving Average',
+        'BB_Lower': 'Bollinger Band — Lower',
+        'BB_Upper': 'Bollinger Band — Upper',
+    }
+
+    try:
+        import shap
+        background = df[feature_cols].tail(min(30, len(df)))
+        explainer = shap.Explainer(predict_mid_quantile, background)
+        shap_result = explainer(X_latest)
+        shap_values = shap_result.values
+        base_value = float(np.atleast_1d(shap_result.base_values)[0])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SHAP computation failed: {e}")
+
+    contributions = []
+    for i, col in enumerate(feature_cols):
+        contributions.append({
+            "feature": col,
+            "label": FEATURE_LABELS.get(col, col),
+            "raw_value": round(float(X_latest[col].iloc[0]), 4),
+            "shap_value": round(float(shap_values[0][i]), 6),
+            "direction": "bullish" if shap_values[0][i] >= 0 else "bearish",
+        })
+    contributions.sort(key=lambda c: abs(c["shap_value"]), reverse=True)
+
+    return {
+        "ticker": clean_ticker,
+        "model_used": "XGBoost Quantile Regressor (50th percentile)",
+        "base_value": round(base_value, 6),
+        "final_prediction": round(base_value + sum(c["shap_value"] for c in contributions), 6),
+        "contributions": contributions,
+    }
+
 @app.get("/api/options/chain")
 def get_options_chain(ticker: str = "AAPL", days: int = 30):
     clean_ticker = ticker.upper().strip()
@@ -341,7 +427,11 @@ def get_options_chain(ticker: str = "AAPL", days: int = 30):
     T = days_clamped / 365.0
     r = 0.045
 
+    # 1. Term Structure: Short expirations have higher baseline event volatility
     term_atm_iv = round(0.24 + 0.07 / math.sqrt(days_clamped / 14.0 + 0.5), 4)
+
+    # 2. Skew & Curvature scaling: scales inversely with sqrt(T)
+    # Short duration (7d) = steep smile; Long duration (90d) = flattens out
     skew_strength = 0.12 / math.sqrt(T * 3.5)
     curvature_strength = 0.38 / math.sqrt(T * 3.5)
 
@@ -360,6 +450,7 @@ def get_options_chain(ticker: str = "AAPL", days: int = 30):
         strike = round(atm_strike + (idx * strike_step), 2)
         moneyness = (strike - spot) / spot
         
+        # Strike IV depends dynamically on moneyness AND expiration T
         strike_iv = max(0.08, term_atm_iv + curvature_strength * (moneyness ** 2) - skew_strength * moneyness)
         greeks = calculate_bs_greeks(spot, strike, T, r, strike_iv)
 

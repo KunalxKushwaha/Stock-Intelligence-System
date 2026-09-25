@@ -201,6 +201,15 @@
         <span>Portfolio Sync</span>
       </button>
 
+      <button
+  onclick="openExplainModal()"
+  class="toolbar-btn"
+  id="explain-btn"
+>
+  <span class="toolbar-icon">🧠</span>
+  <span>Explainability</span>
+</button>
+
 
       <button
         onclick="startTour()"
@@ -736,6 +745,31 @@
     </div>
   </div>
 
+
+  <div id="explain-modal" class="modal hidden">
+  <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3>🧠 Model Explainability (SHAP)</h3>
+      <button onclick="closeExplainModal()" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 12px; color: var(--text-muted);">
+        Feature-attribution breakdown for <strong id="explain-ticker-label">AAPL</strong>'s current XGBoost prediction — each bar shows how much that signal pushed the forecast up (green) or down (red) from the model's baseline expectation.
+      </p>
+      <div id="explain-loading" style="text-align:center; padding: 24px; color: var(--text-muted); font-size: 13px;">
+        Computing SHAP values...
+      </div>
+      <div id="explain-content" class="hidden">
+        <div class="port-summary-box" style="margin-top: 10px;">
+          <div>Model Baseline: <strong id="explain-base">0.00%</strong></div>
+          <div>Final Prediction: <strong id="explain-final">0.00%</strong></div>
+        </div>
+        <div id="explain-bars-container" style="display:flex; flex-direction:column; gap:10px; margin-top:14px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
   <div id="fact-modal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-header">
@@ -824,6 +858,7 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
   <script src="app.js"></script>
   <script src="auth.js"></script>
+  <script src="explain.js"></script>
   <script src="animations.js"></script>
 </body>
 </html>
