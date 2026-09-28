@@ -774,9 +774,7 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.portfolio-modal-content {
-  max-width: 640px;
-}
+.portfolio-modal-content, .tour-modal-content { max-width: 620px; }
 
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .modal-header h3 { font-size: 16px; font-weight: 700; }
@@ -1048,9 +1046,9 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   border-radius: 4px 4px 0 0;
 }
 
-/* ==========================================
-   AlphaBot AI Copilot: Unified Floating & Draggable
-   ========================================== */
+/* ============================================================
+   AlphaBot Copilot (chatbot)
+   ============================================================ */
 .chatbot-root {
   position: fixed;
   bottom: 24px;
@@ -1182,4 +1180,99 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
 @media (max-width: 480px) {
   .chatbot-root { right: 12px; bottom: 12px; }
   .chatbot-window { width: calc(100vw - 24px); }
+}
+
+/* ============================================================
+   Social Trading & Copy-Trading Modal
+   ============================================================ */
+.social-modal-content { max-width: 860px; }
+
+.social-sentiment-banner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.sent-badge-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.sent-badge-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sent-badge-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.social-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.social-filter-bar .tf-btn {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+}
+.social-filter-bar .tf-btn.active {
+  background: var(--accent-blue);
+  color: #0a0c10;
+  border-color: var(--accent-blue);
+}
+
+.social-ideas-stream,
+.leaderboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+.leaderboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); max-height: 440px; }
+
+/* Cards are generated in app.js; style whatever it renders as a direct child */
+.social-ideas-stream > *,
+.leaderboard-grid > * {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 13px 15px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.social-ideas-stream > *:hover,
+.leaderboard-grid > *:hover { border-color: var(--accent-blue); }
+
+.publish-idea-form { display: flex; flex-direction: column; gap: 12px; }
+.form-group textarea {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 9px 11px;
+  border-radius: 9px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  resize: vertical;
+}
+.form-group textarea:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-soft);
+}
+
+@media (max-width: 700px) {
+  .social-sentiment-banner { grid-template-columns: 1fr; }
 }
