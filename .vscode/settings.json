@@ -1,5 +1,11 @@
+// {
+//   "python.analysis.extraPaths": [
+//     "${workspaceFolder}"
+//   ]
+// }
+
 {
-  "python.analysis.extraPaths": [
-    "${workspaceFolder}"
-  ]
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingModuleSource": "none"
+    }
 }
