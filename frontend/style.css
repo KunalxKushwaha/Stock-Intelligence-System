@@ -656,7 +656,230 @@ body.modal-open {
 }
 
 .portfolio-modal-content {
-  max-width: 640px;
+  max-width: 680px;
+}
+
+/* Social Trading & Sentiment Analytics Styling */
+.social-modal-content {
+  max-width: 880px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.social-sentiment-banner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 768px) {
+  .social-sentiment-banner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sent-badge-box {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sent-badge-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sent-badge-val {
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.social-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.social-ideas-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.social-idea-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s;
+}
+
+.social-idea-card:hover {
+  border-color: var(--accent-blue);
+}
+
+.idea-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.idea-author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.idea-author-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.idea-badge {
+  font-size: 10px;
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.idea-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: var(--bg-surface);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+}
+
+.idea-metrics-bar div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.idea-metrics-bar span {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.idea-thesis {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-main);
+}
+
+.idea-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.idea-like-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.idea-like-btn:hover {
+  border-color: var(--accent-red);
+}
+
+.idea-like-btn.liked {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  font-weight: 700;
+}
+
+.leaderboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.trader-lead-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.trader-stats-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  text-align: center;
+}
+
+.trader-holdings-chips {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.holding-chip {
+  font-size: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.publish-idea-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.publish-idea-form textarea {
+  width: 100%;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
 }
 
 .modal-header {
@@ -825,7 +1048,7 @@ body.modal-open {
 }
 
 /* ==========================================
-   AlphaBot AI Copilot: Unified Floating & Draggable
+   AlphaBot AI Copilot: Docked Beneath Window
    ========================================== */
 .chatbot-root {
   position: fixed;

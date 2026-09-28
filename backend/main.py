@@ -4,7 +4,7 @@ import asyncio
 import random
 import math
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import requests
@@ -14,7 +14,7 @@ sys.path.insert(0, str(root_dir))
 
 load_dotenv(root_dir / '.env')
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
@@ -26,6 +26,15 @@ from ML.feature_engineering.build_features import engineer_features
 from data_pipeline.news_data.fetcher import fetch_company_news 
 from recommendation_engine.engine import compute_hybrid_recommendation
 from chatbot.service import process_terminal_chat
+from social_trading.service import (
+    get_community_feed,
+    publish_community_idea,
+    toggle_like_community_idea,
+    get_trader_leaderboard,
+    calculate_copy_allocation,
+    fetch_tradestie_sentiment,
+    fetch_finnhub_social_sentiment
+)
 
 app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.9.3")
 
@@ -61,6 +70,37 @@ try:
             print("✅ Loaded Fallback LSTM Model.")
 except Exception as e:
     print(f"⚠️ Hybrid model load warning: {e}")
+
+BROKER_STATE = {
+    "sync_mode": "live_synced",
+    "portfolio_value": 118420.50,
+    "cash": 92200.00,
+    "buying_power": 184400.00,
+    "positions": [
+        {"ticker": "AAPL", "shares": 10.0, "buyPrice": 298.00, "currentPrice": 305.59, "marketValue": 3055.90, "unrealizedPL": 75.90, "unrealizedPLPct": 2.55}
+    ]
+}
+
+class SocialConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except Exception:
+                self.disconnect(connection)
+
+social_manager = SocialConnectionManager()
 
 def norm_cdf(x: float) -> float:
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
@@ -141,6 +181,7 @@ ASSET_DIRECTORY = {
     "META": {"name": "Meta Platforms", "class": "Equities", "base": 510.00},
     "NFLX": {"name": "Netflix Inc.", "class": "Equities", "base": 680.00},
     "AMD": {"name": "Advanced Micro Devices", "class": "Equities", "base": 145.30},
+    "INTC": {"name": "Intel Corp.", "class": "Equities", "base": 21.50},
     "JPM": {"name": "JPMorgan Chase", "class": "Equities", "base": 215.00},
     "BTCUSD": {"name": "Bitcoin / USD", "class": "Crypto", "base": 65420.00},
     "ETHUSD": {"name": "Ethereum / USD", "class": "Crypto", "base": 3450.00},
@@ -172,6 +213,22 @@ class ChatRequest(BaseModel):
     message: str
     context: Optional[dict] = None
 
+class PublishIdeaRequest(BaseModel):
+    author: str
+    handle: str
+    ticker: str
+    side: str
+    entry_price: float
+    target_price: float
+    stop_loss: float
+    win_rate: Optional[str] = "75%"
+    thesis: str
+    pine_script: Optional[str] = None
+
+class CopyTradeRequest(BaseModel):
+    trader_id: str
+    capital: float = 5000.0
+
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "version": "2.9.3", "active_hybrid_architecture": active_hybrid_architecture}
@@ -188,6 +245,126 @@ def handle_chat_endpoint(req: ChatRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.websocket("/ws/social")
+async def websocket_social(websocket: WebSocket):
+    await social_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        social_manager.disconnect(websocket)
+
+@app.get("/api/social/feed")
+def get_social_feed(
+    ticker: str = "AAPL", 
+    filter: str = "ALL", 
+    user_id: Optional[str] = "default_user",
+    refresh: bool = False
+):
+    try:
+        ideas = get_community_feed(ticker=ticker, filter_mode=filter, user_id=user_id, force_refresh=refresh)
+        return {"status": "success", "count": len(ideas), "ideas": ideas}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/social/sentiment")
+def get_social_sentiment(ticker: str = "AAPL"):
+    try:
+        tradestie = fetch_tradestie_sentiment(ticker)
+        finnhub = fetch_finnhub_social_sentiment(ticker)
+        return {
+            "status": "success",
+            "ticker": ticker.upper().strip(),
+            "tradestie_reddit": tradestie,
+            "finnhub_sentiment": finnhub
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/social/publish")
+async def publish_social_idea(req: PublishIdeaRequest):
+    try:
+        created = publish_community_idea(req.dict())
+        await social_manager.broadcast({
+            "type": "NEW_IDEA",
+            "idea": created
+        })
+        return {"status": "success", "idea": created}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/social/like/{idea_id}")
+async def toggle_social_like(idea_id: str, user_id: str = Query("default_user")):
+    res = toggle_like_community_idea(idea_id, user_id)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=404, detail="Idea not found")
+    
+    await social_manager.broadcast({
+        "type": "LIKE_UPDATE",
+        "idea_id": idea_id,
+        "likes": res["likes"]
+    })
+    return res
+
+@app.get("/api/social/leaderboard")
+def get_social_leaderboard():
+    try:
+        leaders = get_trader_leaderboard()
+        return {"status": "success", "leaderboard": leaders}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/social/copy")
+async def copy_top_trader(req: CopyTradeRequest):
+    res = calculate_copy_allocation(req.trader_id, req.capital)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=404, detail=res.get("message"))
+
+    allocated_capital = float(req.capital)
+    BROKER_STATE["cash"] = max(0.0, BROKER_STATE["cash"] - allocated_capital)
+    
+    for order in res["orders"]:
+        ticker = order["ticker"]
+        alloc_dollars = order["allocated_dollars"]
+        asset_info = ASSET_DIRECTORY.get(ticker, {"base": 150.0})
+        cur_price = float(asset_info["base"])
+        shares = round(alloc_dollars / cur_price, 4)
+
+        existing = next((p for p in BROKER_STATE["positions"] if p["ticker"] == ticker), None)
+        if existing:
+            total_shares = existing["shares"] + shares
+            existing["buyPrice"] = round(((existing["shares"] * existing["buyPrice"]) + (shares * cur_price)) / total_shares, 2)
+            existing["shares"] = round(total_shares, 4)
+            existing["currentPrice"] = cur_price
+            existing["marketValue"] = round(existing["shares"] * cur_price, 2)
+            existing["unrealizedPL"] = round(existing["marketValue"] - (existing["shares"] * existing["buyPrice"]), 2)
+            existing["unrealizedPLPct"] = round((existing["unrealizedPL"] / (existing["shares"] * existing["buyPrice"])) * 100, 2)
+        else:
+            BROKER_STATE["positions"].append({
+                "ticker": ticker,
+                "shares": shares,
+                "buyPrice": cur_price,
+                "currentPrice": cur_price,
+                "marketValue": alloc_dollars,
+                "unrealizedPL": 0.0,
+                "unrealizedPLPct": 0.0
+            })
+
+    total_market_val = sum(p["marketValue"] for p in BROKER_STATE["positions"])
+    BROKER_STATE["portfolio_value"] = round(BROKER_STATE["cash"] + total_market_val, 2)
+    BROKER_STATE["buying_power"] = round(BROKER_STATE["cash"] * 2.0, 2)
+
+    await social_manager.broadcast({
+        "type": "COPY_EXECUTED",
+        "trader_id": res["trader_id"]
+    })
+
+    return {
+        "status": "success",
+        "allocation": res,
+        "broker_state": BROKER_STATE
+    }
 
 @app.get("/api/stock/analyze")
 def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str = "balanced"):
@@ -482,28 +659,53 @@ def run_backtest(ticker: str = "AAPL", initial_capital: float = 10000.0):
 
 @app.get("/api/broker/account")
 def get_broker_account():
-    return {
-        "sync_mode": "simulation",
-        "portfolio_value": 118420.50,
-        "cash": 92200.00,
-        "buying_power": 184400.00,
-        "positions": [
-            {"ticker": "AAPL", "shares": 10, "buyPrice": 298.00, "currentPrice": 305.59, "marketValue": 3055.90, "unrealizedPL": 75.90, "unrealizedPLPct": 2.55}
-        ]
-    }
+    total_market_val = sum(p["marketValue"] for p in BROKER_STATE["positions"])
+    BROKER_STATE["portfolio_value"] = round(BROKER_STATE["cash"] + total_market_val, 2)
+    BROKER_STATE["buying_power"] = round(BROKER_STATE["cash"] * 2.0, 2)
+    return BROKER_STATE
 
 @app.post("/api/broker/order")
 def execute_broker_order(order: OrderRequest):
+    ticker = order.ticker.upper().strip()
+    qty = float(order.qty)
+    asset_info = ASSET_DIRECTORY.get(ticker, {"base": 150.0})
+    cur_p = float(asset_info["base"])
+    exec_price = float(order.limit_price) if order.limit_price else cur_p
+    total_cost = round(qty * exec_price, 2)
+
+    if order.side.lower() == "buy":
+        BROKER_STATE["cash"] = max(0.0, BROKER_STATE["cash"] - total_cost)
+        existing = next((p for p in BROKER_STATE["positions"] if p["ticker"] == ticker), None)
+        if existing:
+            tot_shares = existing["shares"] + qty
+            existing["buyPrice"] = round(((existing["shares"] * existing["buyPrice"]) + (qty * exec_price)) / tot_shares, 2)
+            existing["shares"] = round(tot_shares, 4)
+            existing["currentPrice"] = cur_p
+            existing["marketValue"] = round(tot_shares * cur_p, 2)
+            existing["unrealizedPL"] = round(existing["marketValue"] - (tot_shares * existing["buyPrice"]), 2)
+            existing["unrealizedPLPct"] = round((existing["unrealizedPL"] / (tot_shares * existing["buyPrice"])) * 100, 2)
+        else:
+            BROKER_STATE["positions"].append({
+                "ticker": ticker,
+                "shares": qty,
+                "buyPrice": exec_price,
+                "currentPrice": cur_p,
+                "marketValue": total_cost,
+                "unrealizedPL": 0.0,
+                "unrealizedPLPct": 0.0
+            })
+
     return {
         "status": "success",
-        "message": "Order successfully routed.",
+        "message": "Order successfully routed and settled into portfolio.",
         "order_details": {
             "order_id": f"ORD-{random.randint(100000, 999999)}",
-            "ticker": order.ticker,
+            "ticker": ticker,
             "side": order.side.upper(),
-            "qty": order.qty,
+            "qty": qty,
             "execution_status": "FILLED"
-        }
+        },
+        "broker_state": BROKER_STATE
     }
 
 @app.get("/api/stock/news")
@@ -576,3 +778,6 @@ async def websocket_broker_updates(websocket: WebSocket):
             await websocket.send_json({"event": "fill", "symbol": "AAPL", "timestamp": pd.Timestamp.now().strftime("%H:%M:%S")})
     except WebSocketDisconnect:
         pass
+
+# python -m uvicorn backend.main:app --reload --port 8000
+# python -m http.server 5173

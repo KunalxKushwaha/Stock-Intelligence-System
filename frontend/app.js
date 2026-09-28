@@ -32,9 +32,17 @@ let activeRegime = 'Low Volatility / Bullish';
 
 let orderBookSocket = null;
 let brokerStatusSocket = null;
+let socialSocket = null;
 
 let cachedOptionsData = null;
 let selectedOptionsDays = 30;
+
+// Social & Engagement State
+let activeSocialFilter = 'ALL';
+let cachedSocialIdeas = [];
+let socialFeedTicker = ''; // Tracks which ticker is currently loaded
+let clientUserId = localStorage.getItem('alp_client_user_id') || ('user_' + Math.random().toString(36).substring(2, 9));
+localStorage.setItem('alp_client_user_id', clientUserId);
 
 const ASSET_DIRECTORY = {
   "Equities": {
@@ -47,6 +55,7 @@ const ASSET_DIRECTORY = {
     "META": { name: "Meta Platforms", class: "Equities", base: 510.00 },
     "NFLX": { name: "Netflix Inc.", class: "Equities", base: 680.00 },
     "AMD": { name: "Advanced Micro Devices", class: "Equities", base: 145.30 },
+    "INTC": { name: "Intel Corp.", class: "Equities", base: 21.50 },
     "JPM": { name: "JPMorgan Chase", class: "Equities", base: 215.00 },
     "V": { name: "Visa Inc.", class: "Equities", base: 275.00 }
   },
@@ -158,6 +167,387 @@ function toggleIndicator(ind) {
       tvBbUpperSeries.applyOptions({ visible: showBb });
       tvBbLowerSeries.applyOptions({ visible: showBb });
     }
+  }
+}
+
+// ==========================================
+// Real-Time Social Trading & Copy-Trading Controller
+// ==========================================
+function connectSocialWebSocket() {
+  if (socialSocket) socialSocket.close();
+  socialSocket = new WebSocket('ws://localhost:8000/ws/social');
+
+  socialSocket.onmessage = function(event) {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'NEW_IDEA') {
+        if (!cachedSocialIdeas.some(i => i.id === msg.idea.id)) {
+          cachedSocialIdeas.unshift(msg.idea);
+          renderSocialIdeas();
+        }
+      } else if (msg.type === 'LIKE_UPDATE') {
+        const item = cachedSocialIdeas.find(i => i.id === msg.idea_id);
+        if (item) item.likes = msg.likes;
+        const countSpan = document.getElementById(`like-count-${msg.idea_id}`);
+        if (countSpan) countSpan.textContent = msg.likes;
+      }
+    } catch (e) {
+      console.error("Social WS error:", e);
+    }
+  };
+}
+
+function openSocialModal() {
+  document.body.classList.add('modal-open');
+  document.getElementById('social-modal').classList.remove('hidden');
+  document.getElementById('pub-ticker').value = activeTicker;
+  document.getElementById('pub-entry').value = activeCurrentPrice.toFixed(2);
+  document.getElementById('pub-target').value = activeTargetPrice.toFixed(2);
+  document.getElementById('pub-stop').value = activeLowerBound.toFixed(2);
+  
+  const activeBtn = document.getElementById('btn-social-filter-active');
+  if (activeBtn) activeBtn.textContent = `${activeTicker} Only`;
+
+  // Smart Cache: Only fetch if the active stock changed or cache is completely empty
+  if (socialFeedTicker !== activeTicker || cachedSocialIdeas.length === 0) {
+    fetchAndRenderSocialFeed(false);
+    fetchAndRenderSocialSentiment();
+  } else {
+    renderSocialIdeas();
+  }
+  fetchAndRenderLeaderboard();
+}
+
+function closeSocialModal() {
+  document.body.classList.remove('modal-open');
+  document.getElementById('social-modal').classList.add('hidden');
+}
+
+function switchSocialTab(tabName, btnElem) {
+  document.querySelectorAll('#social-modal .port-tab-btn').forEach(b => b.classList.remove('active'));
+  btnElem.classList.add('active');
+  document.getElementById('social-ideas-view').classList.toggle('hidden', tabName !== 'ideas');
+  document.getElementById('social-leaderboard-view').classList.toggle('hidden', tabName !== 'leaderboard');
+  document.getElementById('social-publish-view').classList.toggle('hidden', tabName !== 'publish');
+  
+  if (tabName === 'ideas') {
+    // Retain loaded posts without blanking out the feed
+    if (socialFeedTicker === activeTicker && cachedSocialIdeas.length > 0) {
+      renderSocialIdeas();
+    } else {
+      fetchAndRenderSocialFeed(false);
+      fetchAndRenderSocialSentiment();
+    }
+  }
+}
+
+function filterSocialFeed(filterType, btnElem) {
+  activeSocialFilter = filterType;
+  document.querySelectorAll('.social-filter-btn').forEach(b => b.classList.remove('active'));
+  btnElem.classList.add('active');
+  fetchAndRenderSocialFeed(false);
+}
+
+function refreshSocialFeedManual() {
+  fetchAndRenderSocialFeed(true);
+  fetchAndRenderSocialSentiment();
+}
+
+async function fetchAndRenderSocialFeed(forceRefresh = false) {
+  const container = document.getElementById('social-ideas-container');
+  // Only show loading placeholder if this is a fresh fetch or force refresh
+  if (forceRefresh || cachedSocialIdeas.length === 0 || socialFeedTicker !== activeTicker) {
+    container.innerHTML = `<p style="font-size:12px; color:var(--text-muted); padding:20px; text-align:center;">Querying live Reddit discussions & Bluesky stream for $${activeTicker}...</p>`;
+  }
+
+  try {
+    const res = await fetch(`http://localhost:8000/api/social/feed?ticker=${activeTicker}&filter=${activeSocialFilter}&user_id=${clientUserId}&refresh=${forceRefresh}`);
+    const data = await res.json();
+    if (data.ideas && data.ideas.length > 0) {
+      cachedSocialIdeas = data.ideas;
+      socialFeedTicker = activeTicker;
+    }
+    renderSocialIdeas();
+  } catch (err) {
+    console.error("Social feed fetch error:", err);
+    if (cachedSocialIdeas.length === 0) {
+      container.innerHTML = '<p style="color:var(--accent-red); padding:20px; text-align:center;">Failed to load live social discussions.</p>';
+    }
+  }
+}
+
+function renderSocialIdeas() {
+  const container = document.getElementById('social-ideas-container');
+  if (!container) return;
+
+  if (cachedSocialIdeas.length === 0) {
+    container.innerHTML = `<p style="font-size:12px; color:var(--text-muted); padding:20px; text-align:center;">No live discussions found for $${activeTicker}. Be the first to publish a setup!</p>`;
+    return;
+  }
+
+  const defaultTraderAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232563eb'%3E%3Ccircle cx='12' cy='12' r='11' fill='%231f2937' stroke='%233b82f6' stroke-width='2'/%3E%3Cpath fill='%239ca3af' d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+
+  container.innerHTML = cachedSocialIdeas.map(item => {
+    const isLong = (item.side || 'LONG').toUpperCase() === 'LONG';
+    const sideClass = isLong ? 'text-gain' : 'text-risk';
+    const hasScript = item.pine_script && item.pine_script.trim().length > 0;
+    const isLiked = item.is_liked;
+    const likedClass = isLiked ? 'liked' : '';
+    const heartIcon = isLiked ? '❤️' : '🤍';
+
+    return `
+      <div class="social-idea-card">
+        <div class="idea-card-header">
+          <div class="idea-author-info">
+            <img src="${item.avatar || defaultTraderAvatar}" onerror="this.onerror=null; this.src='${defaultTraderAvatar}'" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid var(--border-color);" alt="${item.author}">
+            <div>
+              <span class="idea-author-name">${item.author}</span>
+              <a href="${item.post_url}" target="_blank" style="font-size:11px; color:var(--text-muted); text-decoration:none; margin-left:4px;">${item.handle}</a>
+            </div>
+            <span class="idea-badge">${item.badge}</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-muted);">${item.created_at}</span>
+        </div>
+
+        ${item.entry_price ? `
+          <div class="idea-metrics-bar">
+            <div>
+              <span>Asset</span>
+              <strong>${item.ticker} <span class="${sideClass}">(${item.side})</span></strong>
+            </div>
+            <div>
+              <span>Entry</span>
+              <strong>$${Number(item.entry_price).toFixed(2)}</strong>
+            </div>
+            <div>
+              <span>Target</span>
+              <strong class="text-gain">$${Number(item.target_price).toFixed(2)}</strong>
+            </div>
+            <div>
+              <span>Stop Loss</span>
+              <strong class="text-risk">$${Number(item.stop_loss).toFixed(2)}</strong>
+            </div>
+          </div>
+        ` : ''}
+
+        <p class="idea-thesis">${item.thesis}</p>
+
+        <div class="idea-card-footer">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="idea-like-btn ${likedClass}" onclick="toggleLikeSocialIdea('${item.id}', this)" title="${isLiked ? 'Unlike' : 'Like'} this setup">
+              <span class="like-icon">${heartIcon}</span> <span id="like-count-${item.id}">${item.likes}</span>
+            </button>
+            ${hasScript ? `
+              <button class="btn-secondary" style="padding:4px 10px; font-size:11px;" onclick="loadSharedPineScript('${item.pine_script.replace(/'/g, "\\'")}')" title="Render study on TradingView chart">
+                📥 Load Study onto Chart
+              </button>
+            ` : ''}
+          </div>
+          ${item.entry_price ? `
+            <button class="btn-primary" style="padding:5px 12px; font-size:11px;" onclick="stageSocialSetupToBroker('${item.ticker}', '${item.side}',${item.entry_price}, ${item.stop_loss},${item.target_price})">
+              ⚡ Stage Setup in Broker
+            </button>
+          ` : `
+            <a href="${item.post_url}" target="_blank" class="btn-secondary" style="padding:4px 10px; font-size:11px; text-decoration:none;">
+              View on ${item.source} ↗
+            </a>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function toggleLikeSocialIdea(ideaId, btnElem) {
+  try {
+    const res = await fetch(`http://localhost:8000/api/social/like/${ideaId}?user_id=${clientUserId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'success') {
+      const item = cachedSocialIdeas.find(i => i.id === ideaId);
+      if (item) {
+        item.likes = data.likes;
+        item.is_liked = data.liked;
+      }
+      btnElem.classList.toggle('liked', data.liked);
+      const icon = btnElem.querySelector('.like-icon');
+      const count = btnElem.querySelector(`#like-count-${ideaId}`);
+      if (icon) icon.textContent = data.liked ? '❤️' : '🤍';
+      if (count) count.textContent = data.likes;
+      btnElem.title = data.liked ? 'Unlike this setup' : 'Like this setup';
+    }
+  } catch (err) {
+    console.error("Like toggle error:", err);
+  }
+}
+
+async function fetchAndRenderSocialSentiment() {
+  try {
+    const res = await fetch(`http://localhost:8000/api/social/sentiment?ticker=${activeTicker}`);
+    const data = await res.json();
+
+    // Honest Tradestie Reddit Telemetry
+    const tr = data.tradestie_reddit || {};
+    const rankEl = document.getElementById('sent-reddit-rank');
+    const mentionsEl = document.getElementById('sent-reddit-mentions');
+    const orientEl = document.getElementById('sent-reddit-orientation');
+
+    if (tr.status === 'success' && tr.rank) {
+      rankEl.textContent = `Rank #${tr.rank}`;
+      mentionsEl.textContent = `${Number(tr.mentions || 0).toLocaleString()} discussions`;
+      orientEl.textContent = tr.sentiment || 'Bullish';
+      orientEl.className = (tr.sentiment || '').toLowerCase() === 'bearish' ? 'text-risk' : 'text-gain';
+    } else {
+      rankEl.textContent = "Not in Top 50";
+      mentionsEl.textContent = "Minimal activity";
+      orientEl.textContent = "Neutral";
+      orientEl.className = "text-muted";
+    }
+
+    // Honest Finnhub Sentiment Telemetry
+    const fh = data.finnhub_sentiment || {};
+    const fhRedditEl = document.getElementById('sent-finnhub-reddit');
+    const fhTwitterEl = document.getElementById('sent-finnhub-twitter');
+
+    if (fh.status === 'success') {
+      fhRedditEl.textContent = `${Math.round((fh.reddit_score || 0) * 100)}%`;
+      fhTwitterEl.textContent = `${Math.round((fh.twitter_score || 0) * 100)}%`;
+    } else {
+      fhRedditEl.textContent = "No data";
+      fhTwitterEl.textContent = "No data";
+    }
+
+  } catch (err) {
+    console.error("Error fetching social sentiment:", err);
+  }
+}
+
+function loadSharedPineScript(scriptCode) {
+  closeSocialModal();
+  const card = document.getElementById('script-editor-card');
+  const btn = document.getElementById('ind-script-btn');
+  const textarea = document.getElementById('script-textarea');
+
+  if (card && textarea) {
+    card.classList.remove('hidden');
+    if (btn) btn.classList.add('script-active');
+    textarea.value = `// Imported Community Study\n${scriptCode}`;
+    executeCustomScript();
+  }
+}
+
+function stageSocialSetupToBroker(ticker, side, entryPrice, stopLoss, targetPrice) {
+  closeSocialModal();
+  openBrokerModal();
+  document.getElementById('broker-ticker-input').value = ticker;
+  document.getElementById('broker-side-select').value = side.toLowerCase();
+  document.getElementById('broker-type-select').value = 'limit';
+  toggleLimitPriceField();
+  document.getElementById('broker-limit-input').value = entryPrice;
+  document.getElementById('broker-sl-input').value = stopLoss;
+  document.getElementById('broker-tp-input').value = targetPrice;
+}
+
+async function fetchAndRenderLeaderboard() {
+  const container = document.getElementById('social-leaderboard-container');
+  if (!container) return;
+
+  try {
+    const res = await fetch('http://localhost:8000/api/social/leaderboard');
+    const data = await res.json();
+    const funds = data.leaderboard || [];
+
+    container.innerHTML = funds.map(f => `
+      <div class="trader-lead-card">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:22px;">🏛️</span>
+            <div>
+              <strong style="font-size:14px;">${f.name}</strong>
+              <span style="font-size:11px; color:var(--text-muted); margin-left:4px;">(Manager: ${f.manager})</span>
+            </div>
+            <span class="idea-badge">${f.source}</span>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">Style: <strong>${f.style}</strong></p>
+          <div class="trader-holdings-chips">
+            ${(f.holdings || []).map(h => `<span class="holding-chip">${h.ticker}:${h.allocation_pct}%</span>`).join('')}
+          </div>
+        </div>
+
+        <button class="btn-primary" style="padding:6px 14px; font-size:12px;" onclick="copyTraderAllocation('${f.id}', '${f.name}')">
+          ⚡ Copy Portfolio
+        </button>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error("Leaderboard fetch error:", err);
+  }
+}
+
+async function copyTraderAllocation(traderId, traderName) {
+  const capital = prompt(`Enter capital ($) to allocate and replicate ${traderName}'s SEC 13F holdings:`, "5000");
+  if (!capital || isNaN(capital) || Number(capital) <= 0) return;
+
+  try {
+    const res = await fetch('http://localhost:8000/api/social/copy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trader_id: traderId, capital: Number(capital) })
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      const orders = data.allocation.orders || [];
+      const orderSummary = orders.map(o => `• ${o.ticker} (${o.allocation_pct}%): $${o.allocated_dollars.toLocaleString()}`).join('\n');
+      
+      alert(`✅ Portfolio Synchronized!\n\nSuccessfully copied ${traderName} with $${Number(capital).toLocaleString()}:\n${orderSummary}\n\nAll positions are now live in your Broker ledger!`);
+      
+      closeSocialModal();
+      openPortfolioModal();
+      switchPortfolioTab('positions', document.querySelectorAll('.port-tab-btn')[1]);
+    }
+  } catch (err) {
+    console.error("Copy trader error:", err);
+    alert("Failed to execute copy portfolio allocation.");
+  }
+}
+
+async function handlePublishSetup(event) {
+  event.preventDefault();
+  const statusMsg = document.getElementById('pub-status-msg');
+
+  const payload = {
+    author: document.getElementById('pub-author').value.trim(),
+    handle: document.getElementById('pub-handle').value.trim(),
+    ticker: document.getElementById('pub-ticker').value.trim().toUpperCase(),
+    side: document.getElementById('pub-side').value,
+    entry_price: parseFloat(document.getElementById('pub-entry').value),
+    target_price: parseFloat(document.getElementById('pub-target').value),
+    stop_loss: parseFloat(document.getElementById('pub-stop').value),
+    thesis: document.getElementById('pub-thesis').value.trim(),
+    pine_script: document.getElementById('pub-pine').value.trim()
+  };
+
+  try {
+    const res = await fetch('http://localhost:8000/api/social/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      statusMsg.textContent = "✅ Setup successfully published and broadcast to community feed!";
+      statusMsg.style.color = "var(--accent-green)";
+      statusMsg.classList.remove('hidden');
+      
+      setTimeout(() => {
+        statusMsg.classList.add('hidden');
+        switchSocialTab('ideas', document.getElementById('tab-btn-social-ideas'));
+        fetchAndRenderSocialFeed(true);
+      }, 800);
+    }
+  } catch (err) {
+    statusMsg.textContent = "❌ Error publishing setup.";
+    statusMsg.style.color = "var(--accent-red)";
+    statusMsg.classList.remove('hidden');
   }
 }
 
@@ -550,15 +940,15 @@ const tourSteps = [
   { id: "tour-step-1", title: "1. Current Asset Price", desc: "Displays live execution price across equities, crypto, forex, and derivatives." },
   { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Outputs target return percentage predicted by the multi-asset AI model." },
   { id: "tour-step-3", title: "3. 90% Safety Floor", desc: "Calculates downside risk floor using Quantile Conformal XGBoost." },
-  { id: "tour-options-btn", title: "4. Options Chains & Greeks Analytics", desc: "Interactive options expiry matrix, Implied Volatility smile, and Black-Scholes Greeks (Delta, Gamma, Theta, Vega)." },
-  { id: "tour-backtest", title: "5. Automated Backtesting", desc: "Test historical strategy performance against a buy-and-hold benchmark." },
-  { id: "broker-btn", title: "6. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
-  { id: "portfolio-btn", title: "7. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
-  { id: "tour-step-6", title: "8. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
-  { id: "tour-step-7", title: "9. Advanced Professional Charting Suite", desc: "Interactive TradingView Lightweight Charts with candlestick/line modes, SMA, Bollinger Bands, and Pine Script." },
-  { id: "tour-step-8", title: "10. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
-  { id: "tour-step-10", title: "11. Real-Time Market News", desc: "Aggregates filtered news feeds, unique relevance analysis, and impact scoring." },
-  { id: "tour-step-11", title: "12. Multi-Asset L1/L2 Stream", desc: "Streams real-time Level 1 & Level 2 order book depth quotes with volume depth bars." }
+  { id: "tour-social-btn", title: "4. Social Trading & Copy-Trading Feeds", desc: "Browse real-time Reddit/Bluesky discussions and replicate verified SEC 13F portfolios." },
+  { id: "tour-options-btn", title: "5. Options Chains & Greeks Analytics", desc: "Interactive options expiry matrix, Implied Volatility smile, and Black-Scholes Greeks (Delta, Gamma, Theta, Vega)." },
+  { id: "tour-backtest", title: "6. Automated Backtesting", desc: "Test historical strategy performance against a buy-and-hold benchmark." },
+  { id: "broker-btn", title: "7. Direct Broker Router", desc: "Execute orders across multiple asset classes with bracket risk controls." },
+  { id: "portfolio-btn", title: "8. Portfolio & Multi-Asset Sync", desc: "Manage custom watchlists and synchronized multi-asset positions." },
+  { id: "tour-step-6", title: "9. AI Recommendation Engine", desc: "Evaluates RSI momentum and HMM regimes for actionable signals." },
+  { id: "tour-step-7", title: "10. Advanced Professional Charting Suite", desc: "Interactive TradingView Lightweight Charts with candlestick/line modes, SMA, Bollinger Bands, and Pine Script." },
+  { id: "tour-step-8", title: "11. Calculated Technical Indicators", desc: "Features RSI, MACD, and VIX volatility indicators." },
+  { id: "tour-step-10", title: "12. Real-Time Market News", desc: "Aggregates filtered news feeds, unique relevance analysis, and impact scoring." }
 ];
 
 let currentTourIdx = 0;
@@ -637,21 +1027,44 @@ function toggleLimitPriceField() {
 async function submitBrokerOrder() {
   const broker = document.getElementById('broker-select').value;
   const side = document.getElementById('broker-side-select').value.toUpperCase();
-  const qty = document.getElementById('broker-qty-input').value;
+  const qty = parseFloat(document.getElementById('broker-qty-input').value);
   const type = document.getElementById('broker-type-select').value;
-  const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+  const limitPrice = document.getElementById('broker-limit-input').value ? parseFloat(document.getElementById('broker-limit-input').value) : null;
+  const stopLoss = document.getElementById('broker-sl-input').value ? parseFloat(document.getElementById('broker-sl-input').value) : null;
+  const takeProfit = document.getElementById('broker-tp-input').value ? parseFloat(document.getElementById('broker-tp-input').value) : null;
 
-  const respBox = document.getElementById('broker-response-box');
-  respBox.innerHTML = `
-    <strong style="color: var(--accent-green);">✅ Order Execution & Booking Details:</strong><br>
-    • Order ID: <code>${orderId}</code><br>
-    • Broker Gateway: <strong>${broker.toUpperCase()}</strong><br>
-    • Asset Ticker: <strong>${activeTicker}</strong><br>
-    • Order Side: <strong>${side}</strong> | Quantity: <strong>${qty}</strong><br>
-    • Execution Type: <strong>${type.toUpperCase()}</strong><br>
-    • Status: <strong style="color: var(--accent-green);">FILLED (Settled)</strong>
-  `;
-  respBox.classList.remove('hidden');
+  try {
+    const res = await fetch('http://localhost:8000/api/broker/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        broker: broker,
+        ticker: activeTicker,
+        side: side,
+        qty: qty,
+        order_type: type,
+        limit_price: limitPrice,
+        stop_loss: stopLoss,
+        take_profit: takeProfit
+      })
+    });
+    const data = await res.json();
+    const details = data.order_details;
+
+    const respBox = document.getElementById('broker-response-box');
+    respBox.innerHTML = `
+      <strong style="color: var(--accent-green);">✅ Order Execution & Booking Details:</strong><br>
+      • Order ID: <code>${details.order_id}</code><br>
+      • Broker Gateway: <strong>${broker.toUpperCase()}</strong><br>
+      • Asset Ticker: <strong>${details.ticker}</strong><br>
+      • Order Side: <strong>${details.side}</strong> | Quantity: <strong>${details.qty}</strong><br>
+      • Execution Status: <strong style="color: var(--accent-green);">${details.execution_status} (Settled into Portfolio)</strong>
+    `;
+    respBox.classList.remove('hidden');
+  } catch (err) {
+    console.error("Order routing error:", err);
+    alert("Failed to route order through broker gateway.");
+  }
 }
 
 // ==========================================
@@ -829,6 +1242,7 @@ function switchPortfolioTab(tabName, btnElem) {
   btnElem.classList.add('active');
   document.getElementById('tab-watchlist').classList.toggle('hidden', tabName !== 'watchlist');
   document.getElementById('tab-positions').classList.toggle('hidden', tabName !== 'positions');
+  if (tabName === 'positions') renderLivePositionsTab();
 }
 function getStoredWatchlist() {
   try { return JSON.parse(localStorage.getItem('user_watchlist')) || ['AAPL', 'BTCUSD']; } catch(e) { return ['AAPL']; }
@@ -849,8 +1263,46 @@ function renderWatchlistTab() {
     <div class="port-item-row"><div><strong>${t}</strong></div><button onclick="selectTicker('${t}'); closePortfolioModal();" class="btn-primary" style="padding:4px 10px; font-size:11px;">View</button></div>
   `).join('');
 }
+
 async function renderLivePositionsTab() {
-  document.getElementById('positions-items-container').innerHTML = `<div class="port-item-row"><div><strong>AAPL</strong> (10 Shares)</div><strong class="text-gain">+$75.90</strong></div>`;
+  const container = document.getElementById('positions-items-container');
+  if (!container) return;
+  container.innerHTML = '<p style="font-size:12px; color:var(--text-muted); padding:10px;">Synchronizing broker ledger...</p>';
+
+  try {
+    const res = await fetch('http://localhost:8000/api/broker/account');
+    const data = await res.json();
+
+    document.getElementById('port-total-val').textContent = `$${data.portfolio_value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('port-cash-val').textContent = `$${data.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+    const positions = data.positions || [];
+    if (positions.length === 0) {
+      container.innerHTML = '<p style="font-size:12px; color:var(--text-muted); padding:10px;">No open positions in active account.</p>';
+      return;
+    }
+
+    container.innerHTML = positions.map(pos => {
+      const plClass = pos.unrealizedPL >= 0 ? 'text-gain' : 'text-risk';
+      const plSign = pos.unrealizedPL >= 0 ? '+' : '';
+      return `
+        <div class="port-item-row" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <strong>${pos.ticker}</strong> 
+            <span style="font-size:11px; color:var(--text-muted);">(${pos.shares} Units @ $${Number(pos.buyPrice).toFixed(2)})</span>
+            <div style="font-size:11px; color:var(--text-muted);">Market Value: $${Number(pos.marketValue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+          </div>
+          <div style="text-align:right;">
+            <strong class="${plClass}">${plSign}$${Number(pos.unrealizedPL).toFixed(2)}</strong>
+            <div style="font-size:11px;" class="${plClass}">${plSign}${Number(pos.unrealizedPLPct).toFixed(2)}%</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error("Error syncing positions:", err);
+    container.innerHTML = '<p style="color:var(--accent-red); padding:10px;">Failed to synchronize live positions.</p>';
+  }
 }
 
 function setTimeframe(tf, btnElement) {
@@ -989,5 +1441,6 @@ function selectTicker(symbol) { fetchIntelligence(symbol); }
 window.addEventListener('DOMContentLoaded', () => {
   fetchIntelligence('AAPL');
   connectBrokerStatusStream();
+  connectSocialWebSocket();
   initDraggableChatbot();
 });
