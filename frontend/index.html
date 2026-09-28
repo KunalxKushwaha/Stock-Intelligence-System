@@ -65,168 +65,14 @@
       </button>
     </form>
 
-
-    <!-- RIGHT SIDE -->
-    <div class="nav-user-actions">
-
-      <div
-        class="account-menu-wrap"
-        id="account-menu-wrap"
-      >
-
-        <button
-          onclick="openAuthModal('login')"
-          class="account-trigger"
-          id="auth-nav-btn"
-        >
-          <span class="account-icon">👤</span>
-
-          <span class="account-trigger-label">
-            Sign In
-          </span>
-
-          <span class="account-chevron">
-            ⌄
-          </span>
-        </button>
-
-
-        <!-- ACCOUNT POPOVER -->
-        <div
-          id="account-popover"
-          class="account-popover hidden"
-        >
-
-          <div class="account-profile">
-
-            <div
-              class="account-avatar"
-              id="account-avatar"
-            >
-              A
-            </div>
-
-            <div class="account-information">
-
-              <strong id="account-name">
-                Account
-              </strong>
-
-              <span id="account-email">
-                Not signed in
-              </span>
-
-            </div>
-
-          </div>
-
-          <div class="account-divider"></div>
-
-          <button
-            class="account-logout"
-            onclick="logout()"
-          >
-            <span>↪</span>
-            Sign out
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <!-- THEME -->
-      <button
-        onclick="toggleTheme()"
-        class="theme-btn"
-        id="theme-btn"
-      >
-        🌙
-        <span>Dark</span>
-      </button>
-
-    </div>
-
-  </div>
-
-
-  <!-- TOOLBAR -->
-  <div class="navbar-toolbar">
-
-    <div class="toolbar-inner">
-
-      <span class="toolbar-label">
-        Terminal
-      </span>
-
-      <div class="toolbar-divider"></div>
-
-
-      <button
-        onclick="openStocksModal()"
-        class="toolbar-btn"
-        id="tour-asset-dir"
-      >
-        <span class="toolbar-icon">📂</span>
-        <span>Asset Directory</span>
-      </button>
-
-
-      <button
-        onclick="openBacktestModal()"
-        class="toolbar-btn"
-        id="tour-backtest"
-      >
-        <span class="toolbar-icon">📈</span>
-        <span>Backtest</span>
-      </button>
-
-
-      <button
-        onclick="openBrokerModal()"
-        class="toolbar-btn"
-        id="broker-btn"
-      >
-        <span class="toolbar-icon">⚡</span>
-        <span>Broker Router</span>
-      </button>
-
-
-      <button
-        onclick="openPortfolioModal()"
-        class="toolbar-btn"
-        id="portfolio-btn"
-      >
-        <span class="toolbar-icon">📊</span>
-        <span>Portfolio Sync</span>
-      </button>
-
-      <button
-  onclick="openExplainModal()"
-  class="toolbar-btn"
-  id="explain-btn"
->
-  <span class="toolbar-icon">🧠</span>
-  <span>Explainability</span>
-</button>
-
-
-      <button
-        onclick="startTour()"
-        class="toolbar-btn"
-      >
-        <span class="toolbar-icon">🎓</span>
-        <span>Tour</span>
-      </button>
-
-
-      <div class="toolbar-spacer"></div>
-
-      <div class="market-status">
-        <span class="status-dot"></span>
-        <span>Market Intelligence Online</span>
-      </div>
-
+    <div class="nav-actions">
+      <button onclick="openStocksModal()" class="btn-secondary" id="tour-asset-dir">📂 Asset Directory</button>
+      <button onclick="openOptionsModal()" class="btn-secondary" id="tour-options-btn">⛓️ Options & Greeks</button>
+      <button onclick="openBacktestModal()" class="btn-secondary" id="tour-backtest">📈 Backtest</button>
+      <button onclick="openBrokerModal()" class="btn-secondary" id="broker-btn">⚡ Broker Router</button>
+      <button onclick="openPortfolioModal()" class="btn-secondary" id="portfolio-btn">📊 Portfolio Sync</button>
+      <button onclick="startTour()" class="btn-secondary">🎓 Tour</button>
+      <button onclick="toggleTheme()" class="btn-secondary" id="theme-btn">🌙 Dark</button>
     </div>
 
   </div>
@@ -458,6 +304,125 @@
 
     </div>
   </main>
+
+  <!-- Social Trading & Public Copy-Trading Modal -->
+  <div id="social-modal" class="modal hidden">
+    <div class="modal-content social-modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 22px;">👥</span>
+          <div>
+            <h3>Social Trading & Public Copy-Trading Feeds</h3>
+            <p style="font-size: 12px; color: var(--text-muted);">Discover trade setups, load shared Pine Script studies, and replicate verified portfolios</p>
+          </div>
+        </div>
+        <button onclick="closeSocialModal()" class="close-btn">&times;</button>
+      </div>
+      
+      <!-- Social Tabs (Exact 3 tabs requested) -->
+      <div class="modal-tabs">
+        <button onclick="switchSocialTab('ideas', this)" class="port-tab-btn active" id="tab-btn-social-ideas">💡 Community Ideas</button>
+        <button onclick="switchSocialTab('leaderboard', this)" class="port-tab-btn" id="tab-btn-social-leaders">🏆 Top Portfolios (Copy-Trading)</button>
+        <button onclick="switchSocialTab('publish', this)" class="port-tab-btn" id="tab-btn-social-publish">✍️ Publish Setup</button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Tab 1: Community Setups & Live Social Feeds -->
+        <div id="social-ideas-view">
+          
+          <!-- Live Sentiment Summary Banner (Tradestie Reddit + Finnhub) -->
+          <div class="social-sentiment-banner">
+            <div class="sent-badge-box">
+              <span class="sent-badge-title">🔥 Reddit (r/wallstreetbets)</span>
+              <div class="sent-badge-val">
+                <span id="sent-reddit-rank">Rank #--</span> | 
+                <span id="sent-reddit-mentions">-- mentions</span> | 
+                <strong id="sent-reddit-orientation" class="text-gain">Bullish</strong>
+              </div>
+            </div>
+            <div class="sent-badge-box">
+              <span class="sent-badge-title">🏛️ Finnhub Institutional Sentiment</span>
+              <div class="sent-badge-val">
+                <span>Reddit: <strong id="sent-finnhub-reddit">--%</strong></span> | 
+                <span>Twitter: <strong id="sent-finnhub-twitter">--%</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="social-filter-bar">
+            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Filter by Ticker:</span>
+            <button onclick="filterSocialFeed('ALL', this)" class="tf-btn active social-filter-btn" id="btn-social-filter-all">All Assets</button>
+            <button onclick="filterSocialFeed('ACTIVE', this)" class="tf-btn social-filter-btn" id="btn-social-filter-active">Active Stock</button>
+            <button onclick="refreshSocialFeedManual()" class="tf-btn" style="margin-left: auto;">🔄 Refresh Feed</button>
+          </div>
+          <div id="social-ideas-container" class="social-ideas-stream"></div>
+        </div>
+
+        <!-- Tab 2: Top Portfolios & Copy-Trading -->
+        <div id="social-leaderboard-view" class="hidden">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+            Verified quants and algorithmic traders ranked by 180-day Sharpe ratio and return efficiency. Click <strong>Copy Portfolio</strong> to replicate their active asset weights directly into your synced broker account.
+          </p>
+          <div id="social-leaderboard-container" class="leaderboard-grid"></div>
+        </div>
+
+        <!-- Tab 3: Publish Setup -->
+        <div id="social-publish-view" class="hidden">
+          <form onsubmit="handlePublishSetup(event)" class="publish-idea-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Author Display Name:</label>
+                <input type="text" id="pub-author" placeholder="e.g. Alex Quant" required>
+              </div>
+              <div class="form-group">
+                <label>Handle / Tag:</label>
+                <input type="text" id="pub-handle" placeholder="e.g. @alex_trades" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Asset Ticker:</label>
+                <input type="text" id="pub-ticker" required style="text-transform: uppercase;">
+              </div>
+              <div class="form-group">
+                <label>Trade Direction:</label>
+                <select id="pub-side">
+                  <option value="LONG">LONG (Bullish)</option>
+                  <option value="SHORT">SHORT (Bearish)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
+              <div class="form-group">
+                <label>Entry Price ($):</label>
+                <input type="number" id="pub-entry" step="0.01" required>
+              </div>
+              <div class="form-group">
+                <label>Target Price ($):</label>
+                <input type="number" id="pub-target" step="0.01" required>
+              </div>
+              <div class="form-group">
+                <label>Stop Loss ($):</label>
+                <input type="number" id="pub-stop" step="0.01" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Strategy Thesis & Analysis:</label>
+              <textarea id="pub-thesis" rows="3" placeholder="Explain your risk corridors, market regime context, or macro triggers..." required></textarea>
+            </div>
+            <div class="form-group">
+              <label>Attach Pine Script Study (Optional):</label>
+              <input type="text" id="pub-pine" placeholder="e.g. Close * 1.022 (allows community to load your indicator onto their chart)">
+            </div>
+            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Publish Setup to Public Feed</button>
+            <div id="pub-status-msg" class="hidden" style="font-size: 12px; margin-top: 8px; text-align: center;"></div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <!-- Real-Time Options Chains & Greeks Analytics Modal -->
   <div id="options-modal" class="modal hidden">
@@ -807,7 +772,7 @@
   <!-- Unified Draggable Chatbot Root -->
   <div id="chatbot-root" class="chatbot-root">
     
-    <!-- Chat Drawer Window (Positioned on top of launcher) -->
+    <!-- Chat Drawer Window (Anchored ABOVE the launcher button) -->
     <div id="chatbot-window" class="chatbot-window hidden">
       <div class="chatbot-header">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -847,7 +812,7 @@
       </form>
     </div>
 
-    <!-- Collapsed Launcher Button (Anchored directly below the drawer) -->
+    <!-- Collapsed Launcher Button (Always docked below the window) -->
     <div id="chatbot-launcher" class="chatbot-launcher" onclick="toggleChatbot()" title="Open/Close AlphaBot Copilot">
       <span>🤖</span>
       <span class="launcher-label">AlphaBot Copilot</span>

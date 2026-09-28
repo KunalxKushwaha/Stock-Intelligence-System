@@ -17,16 +17,15 @@ CORE PLATFORM KNOWLEDGE:
 1. Charting & Pine Script: TradingView Lightweight charts supporting SMA, Bollinger Bands, and a "⚡ Pine Script" editor for custom mathematical price studies (e.g., `Close * 1.015`).
 2. Backtesting: Click '📈 Backtest'. Simulates historical performance of the XGBoost + Conformal Quantile Strategy vs Buy & Hold over 180 sessions. Output metrics: Final Value, Strategy Return %, Outperformance %, and Sharpe Ratio (reward earned per unit of volatility).
 3. Conformal Safety Floors: The 90% Safety Floor (5th percentile) and Upside Ceiling (95th percentile) are mathematically computed risk boundaries derived from empirical quantile regression.
-4. Options Chains & Greeks: Click '⛓️ Options & Greeks'. Real-time Black-Scholes calculations:
-   - Delta: Price sensitivity (how much option price changes if the stock moves $1.00).
-   - Theta: Time decay (the daily rent lost as expiration approaches).
-   - Gamma: Acceleration of Delta.
-   - Vega: Sensitivity to Implied Volatility shifts.
-   - IV Smile: Displays volatility skew. Out-of-the-money puts have higher IV because institutions pay a premium for downside crash protection.
-5. Broker Router: Click '⚡ Broker Router' to stage paper/simulated orders with Market/Limit types and Stop-Loss / Take-Profit bracket controls.
+4. Options Chains & Greeks: Click '⛓️ Options & Greeks'. Real-time Black-Scholes calculations (Delta, Theta, Gamma, Vega) and dynamic IV Smiles.
+5. Social Trading & Public Copy-Trading Feeds: Click '👥 Social & Copy-Trade' in the navbar. Allows users to:
+   - Browse community trade setups with attached Pine Script studies (with one-click 'Load Study onto Chart').
+   - Stage orders into the Broker Router directly from published setups.
+   - Replicate asset allocations of verified top traders via the Copy-Trading Leaderboard.
+6. Broker Router: Click '⚡ Broker Router' to stage paper/simulated orders with Market/Limit types and Stop-Loss / Take-Profit bracket controls.
 
 CRITICAL INSTRUCTIONS:
-- PnL CALCULATIONS: When the user asks about buying shares or profit/loss, DO THE ACTUAL ARITHMETIC step-by-step using the live prices in context. Show total investment, projected return at Target Price, and downside exposure at the 90% Safety Floor.
+- PnL CALCULATIONS: When the user asks about buying shares or profit/loss, DO THE ACTUAL ARITHMETIC step-by-step using the live prices in context.
 - BOUNDARIES: If the user asks about off-topic tasks (general coding, sports, cooking, politics, general trivia), politely and warmly decline, steering them back to the terminal.
 - ADVICE: If asked "Should I go all in?", candidly remind them that no model is infallible and emphasize risk-managed position sizing.
 """
@@ -54,7 +53,7 @@ def query_llm_api(system_prompt: str, user_prompt: str, context: dict = None) ->
                     "follow_ups": [
                         f"Calculate PnL for 25 shares of {ticker}",
                         f"What is the 90% Safety Floor for {ticker}?",
-                        f"Explain Black-Scholes Greeks for {ticker}"
+                        "How do I copy top traders in the Social Feed?"
                     ]
                 }
         except Exception as e:
@@ -80,7 +79,7 @@ def query_llm_api(system_prompt: str, user_prompt: str, context: dict = None) ->
                     "follow_ups": [
                         f"Calculate PnL for 25 shares of {ticker}",
                         f"What is the 90% Safety Floor for {ticker}?",
-                        f"Explain Black-Scholes Greeks for {ticker}"
+                        "How do I copy top traders in the Social Feed?"
                     ]
                 }
         except Exception as e:
@@ -107,22 +106,38 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
         "who won", "movie", "song", "joke", "capital of", "president", 
         "write a python", "write a code", "java", "c++", "translate"
     ]
-    if any(k in p_lower for k in off_topic_triggers) and not any(k in p_lower for k in ["pine", "stock", "terminal", "greek", "options", "trading"]):
+    if any(k in p_lower for k in off_topic_triggers) and not any(k in p_lower for k in ["pine", "stock", "terminal", "greek", "options", "trading", "social", "copy"]):
         return {
             "reply": (
                 "I'd love to chat about that, but my focus is strictly dedicated to this trading terminal and market analytics!\n\n"
                 f"I don't handle general Python scripting, web scraping, sports trivia, or cooking recipes. "
-                f"However, if you'd like to write a Pine Script study for {ticker}, calculate trade risk, "
+                f"However, if you'd like to write a Pine Script study for {ticker}, copy top-performing portfolios, "
                 "or inspect options chains, I'm all in!"
             ),
             "follow_ups": [
                 f"Calculate PnL for 25 shares of {ticker}",
                 f"What is the 90% Safety Floor for {ticker}?",
-                f"How do I open the Options Chain for {ticker}?"
+                "How do I copy top traders in the Social Feed?"
             ]
         }
 
-    # 2. Custom Technical Indicators & Pine Script Editor
+    # 2. Social Trading & Copy-Trading Queries
+    if any(k in p_lower for k in ["social", "copy", "community", "public feed", "leaderboard", "share setup"]):
+        return {
+            "reply": (
+                "Our **👥 Social & Copy-Trade** hub connects you directly to top quantitative traders:\n\n"
+                "• **Community Ideas:** Browse trade setups with targets, stop-losses, and community upvotes. You can click **'📥 Load Study'** to plot another trader's Pine Script study directly on your chart!\n"
+                "• **Copy-Trading Leaderboard:** Inspect verified 180-day ROIs, win rates, and Sharpe ratios. Click **'⚡ Copy Trader'** to automatically replicate their multi-asset allocations into your Broker Router!\n"
+                "• **Publish Setup:** Share your own technical theses and custom Pine Script expressions with the community."
+            ),
+            "follow_ups": [
+                "How do I load a shared Pine Script onto my chart?",
+                "How does portfolio copy-trading work?",
+                f"Calculate PnL for 25 shares of {ticker}"
+            ]
+        }
+
+    # 3. Custom Technical Indicators & Pine Script Editor
     if any(k in p_lower for k in ["indicator", "script", "study", "pine", "plot", "formula", "draw"]) or ("custom" in p_lower and "indicator" in p_lower):
         return {
             "reply": (
@@ -130,7 +145,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
                 "1. Look at the chart toolbar directly above the main candlestick pane.\n"
                 "2. Click the **'⚡ Pine Script'** button to expand our embedded study editor.\n"
                 "3. Type your custom mathematical expression using price series keywords (e.g., `Close * 1.015` or pick a preset like Dual SMA Crossover from the dropdown).\n"
-                "4. Click **Compile & Plot Study** to execute the script and render your custom study line directly on the live chart!"
+                "4. Click **Compile & Plot Study** to instantly render your custom study line directly on the live chart!"
             ),
             "follow_ups": [
                 "What presets are available in the Pine Script editor?",
@@ -139,7 +154,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             ]
         }
 
-    # 3. PnL and Profit/Loss Math Queries
+    # 4. PnL and Profit/Loss Math Queries
     if any(k in p_lower for k in ["profit", "loss", "pnl", "calculate", "buy", "shares", "invest", "return"]):
         match = re.search(r'(\d+)\s*(?:shares|units|stocks)?', p_lower)
         qty = int(match.group(1)) if match else 25
@@ -171,7 +186,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             ]
         }
 
-    # 4. Safety Floor & Quantile Bounds
+    # 5. Safety Floor & Quantile Bounds
     if any(k in p_lower for k in ["safety floor", "floor", "downside", "ceiling", "conformal", "bound", "risk"]):
         return {
             "reply": (
@@ -190,7 +205,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             ]
         }
 
-    # 5. Greeks Explanations (Delta, Theta, Vega, Gamma)
+    # 6. Greeks Explanations (Delta, Theta, Vega, Gamma)
     if any(k in p_lower for k in ["delta", "theta", "gamma", "vega", "greek"]):
         return {
             "reply": (
@@ -208,7 +223,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             ]
         }
 
-    # 6. Volatility Smile / Skew Explanations
+    # 7. Volatility Smile / Skew Explanations
     if any(k in p_lower for k in ["smile", "skew", "out-of-the-money", "otm", "put"]):
         return {
             "reply": (
@@ -224,7 +239,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             ]
         }
 
-    # 7. Backtesting & Sharpe Ratio
+    # 8. Backtesting & Sharpe Ratio
     if any(k in p_lower for k in ["backtest", "sharpe", "historical", "benchmark"]):
         return {
             "reply": (
@@ -244,7 +259,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             ]
         }
 
-    # 8. "Should I go all in?" / Position Sizing Advice
+    # 9. "Should I go all in?" / Position Sizing Advice
     if any(k in p_lower for k in ["all in", "yolo", "everything", "bet", "gamble"]):
         return {
             "reply": (
@@ -261,7 +276,7 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             ]
         }
 
-    # 9. Default Context-Aware Greeting
+    # 10. Default Context-Aware Greeting
     return {
         "reply": (
             f"Hey there! I am **AlphaBot**, your terminal copilot. I'm actively monitoring **{company_name} ({ticker})** "
@@ -270,11 +285,11 @@ def generate_offline_fallback(user_prompt: str, context: dict = None) -> dict:
             f"• *'If I buy 25 shares, what is my net profit at the target price?'*\n"
             f"• *'What does the 90% Safety Floor tell me about downside risk?'*\n"
             f"• *'Where do I write custom technical indicators?'*\n"
-            f"• *'Explain what Delta and Theta mean in the options chain'*"
+            f"• *'How do I copy top traders in the Social Feed?'*"
         ),
         "follow_ups": [
             f"Calculate PnL for 25 shares of {ticker}",
-            f"Where do I write custom technical indicators?",
+            "How do I copy top traders in the Social Feed?",
             f"What is the 90% Safety Floor for {ticker}?"
         ]
     }
