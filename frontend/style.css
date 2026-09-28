@@ -1071,3 +1071,10 @@ body.modal-open {
   padding: 8px 14px;
   font-size: 12px;
 }
+
+/* Backtest modal viewport handling */
+#backtest-modal .modal-content {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
