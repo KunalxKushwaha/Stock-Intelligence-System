@@ -84,6 +84,7 @@ def predict_mid_quantile(X):
     if preds.shape[1] == 1:
         return preds[:, 0]
     return preds[:, preds.shape[1] // 2]
+
 hybrid_nn_model = None
 active_hybrid_architecture = "Empirically Benchmarked GRU/LSTM Hybrid"
 try:
@@ -275,6 +276,7 @@ def handle_chat_endpoint(req: ChatRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 @app.websocket("/ws/social")
 async def websocket_social(websocket: WebSocket):
     await social_manager.connect(websocket)
@@ -516,14 +518,197 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str 
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# Real-Time Options Chains & Greeks Endpoint (Time-Varying Smile)
+# SHAP Explainability — natural-language helpers
+# ==========================================
+def _casual_label(s: str) -> str:
+    """Lowercases a label for mid-sentence use, but leaves acronyms (VIX, RSI, MACD) capitalized."""
+    words = s.split(' ')
+    out = []
+    for w in words:
+        core = w.strip('()')
+        out.append(w if (core.isupper() and len(core) > 1) else w.lower())
+    return ' '.join(out)
+
+
+def describe_feature(feature: str, raw_value: float, shap_value: float, direction: str) -> dict:
+    """Turns one SHAP number into a plain-English sentence + a status badge."""
+    is_bullish = direction == "bullish"
+    magnitude = abs(shap_value)
+
+    # Near-zero contributions get honest, hedged language instead of a
+    # confident directional claim that can contradict the feature's own badge.
+    if magnitude < 0.0005:
+        strength = "negligibly"
+    elif magnitude < 0.001:
+        strength = "slightly"
+    elif magnitude < 0.003:
+        strength = "moderately"
+    else:
+        strength = "strongly"
+
+    if feature == 'VIX_Close':
+        if raw_value > 25:
+            badge, badge_color = "High Risk", "red"
+        elif raw_value > 18:
+            badge, badge_color = "Elevated", "yellow"
+        else:
+            badge, badge_color = "Low Volatility", "green"
+        if strength == "negligibly":
+            sentence = f"Market-wide volatility (VIX at {raw_value:.1f}) had almost no measurable effect on this forecast."
+        else:
+            sentence = (
+                f"Market-wide volatility (VIX at {raw_value:.1f}) is {strength} supporting the forecast."
+                if is_bullish else
+                f"Elevated market volatility (VIX at {raw_value:.1f}) is {strength} dragging the forecast down, reflecting broader risk-off conditions."
+            )
+
+    elif feature == 'Log_Return':
+        badge, badge_color = ("Strong Momentum", "green") if raw_value > 0.01 else \
+            (("Mild Momentum", "green") if raw_value > 0 else
+             (("Mild Weakness", "red") if raw_value > -0.01 else ("Weak Momentum", "red")))
+        raw_is_bullish_looking = raw_value > 0
+        if strength == "negligibly":
+            sentence = "Recent price momentum had almost no measurable effect on this forecast."
+        elif raw_is_bullish_looking != is_bullish:
+            sentence = (
+                f"Despite positive recent momentum on its own, the model's current reading finds this factor "
+                f"{strength} working against the forecast, likely offset by other signals."
+                if not is_bullish else
+                f"Despite recent price weakness on its own, the model's current reading finds this factor "
+                f"{strength} supporting the forecast, likely due to other offsetting signals."
+            )
+        else:
+            sentence = (
+                f"Recent price momentum is {strength} pushing the forecast higher, continuing the asset's short-term trend."
+                if is_bullish else
+                f"Recent price momentum is {strength} weighing on the forecast, suggesting short-term weakness."
+            )
+
+    elif feature == 'RSI_14':
+        if raw_value > 70:
+            badge, badge_color = "Overbought", "red"
+        elif raw_value < 30:
+            badge, badge_color = "Oversold", "yellow"
+        else:
+            badge, badge_color = "Neutral Zone", "green"
+        raw_is_bullish_looking = badge_color != "red"
+        if strength == "negligibly":
+            sentence = f"RSI momentum at {raw_value:.1f} had almost no measurable effect on this forecast."
+        elif raw_is_bullish_looking != is_bullish:
+            sentence = (
+                f"Although RSI at {raw_value:.1f} isn't flashing overbought, the model's current reading finds it "
+                f"{strength} working against the forecast, likely offset by other signals."
+                if not is_bullish else
+                f"Despite RSI at {raw_value:.1f} looking stretched, the model's current reading finds it "
+                f"{strength} supporting the forecast, likely due to other offsetting signals."
+            )
+        else:
+            sentence = (
+                f"RSI momentum at {raw_value:.1f} is {strength} adding bullish pressure without being overbought."
+                if is_bullish else
+                f"RSI momentum at {raw_value:.1f} is {strength} capping upside, suggesting fading momentum."
+            )
+
+    elif feature == 'MACD':
+        badge, badge_color = ("Bullish Crossover", "green") if raw_value > 0 else ("Bearish Crossover", "red")
+        if strength == "negligibly":
+            sentence = "The MACD trend signal had almost no measurable effect on this forecast, despite its current crossover state."
+        else:
+            sentence = (
+                f"The MACD trend signal is {strength} confirming upward momentum, reinforcing the bullish case."
+                if is_bullish else
+                f"The MACD trend signal is {strength} signaling weakening momentum, working against the forecast."
+            )
+
+    elif feature == 'SMA_Ratio':
+        badge, badge_color = ("Above Average", "green") if raw_value > 1 else ("Below Average", "red")
+        raw_is_bullish_looking = raw_value > 1
+        if strength == "negligibly":
+            sentence = "Price relative to its moving average had almost no measurable effect on this forecast."
+        elif raw_is_bullish_looking != is_bullish:
+            sentence = (
+                f"Despite trading above its moving average, the model's current reading finds this factor "
+                f"{strength} working against the forecast, likely offset by other signals."
+                if not is_bullish else
+                f"Despite trading below its moving average, the model's current reading finds this factor "
+                f"{strength} supporting the forecast, likely due to other offsetting signals."
+            )
+        else:
+            sentence = (
+                f"Price trading above its moving average is {strength} reinforcing upward trend confidence."
+                if is_bullish else
+                f"Price trading below its moving average is {strength} suggesting the trend has weakened."
+            )
+    elif feature in ('BB_Upper', 'BB_Lower'):
+        band_name = "upper" if feature == 'BB_Upper' else "lower"
+        badge, badge_color = "Band Context", "yellow"
+        if strength == "negligibly":
+            sentence = f"Proximity to the {band_name} Bollinger Band had almost no measurable effect on this forecast."
+        else:
+            sentence = (
+                f"Proximity to the {band_name} Bollinger Band is {strength} supporting the forecast."
+                if is_bullish else
+                f"Proximity to the {band_name} Bollinger Band is {strength} constraining the forecast."
+            )
+
+    else:
+        badge, badge_color = "Baseline", "yellow"
+        sentence = "The current price level serves as the model's baseline reference point." if strength == "negligibly" else \
+            f"The current price level is {strength} factored into the model's baseline expectation."
+
+    return {"sentence": sentence, "badge": badge, "badge_color": badge_color}
+
+def generate_tldr(ticker: str, contributions: list, final_prediction: float) -> dict:
+    """One-sentence executive summary: which signal is winning, and by how much."""
+    bullish = [c for c in contributions if c["direction"] == "bullish"]
+    bearish = [c for c in contributions if c["direction"] == "bearish"]
+    top_bullish = bullish[0] if bullish else None
+    top_bearish = bearish[0] if bearish else None
+    is_positive = final_prediction >= 0
+
+    if final_prediction > 0.01:
+        emoji, sentiment_label = "🟢", "Strong Buy Sentiment"
+    elif final_prediction > 0.002:
+        emoji, sentiment_label = "🟢", "Buy Sentiment"
+    elif final_prediction > -0.002:
+        emoji, sentiment_label = "🟡", "Neutral Sentiment"
+    elif final_prediction > -0.01:
+        emoji, sentiment_label = "🔴", "Sell Sentiment"
+    else:
+        emoji, sentiment_label = "🔴", "Strong Sell Sentiment"
+
+    driver = top_bullish if is_positive else top_bearish
+    opposing = top_bearish if is_positive else top_bullish
+    verb = "elevated" if is_positive else "pulled down"
+
+    opposing_is_meaningful = (
+        driver and opposing and
+        abs(opposing["shap_value"]) >= 0.25 * abs(driver["shap_value"])
+    )
+
+    if opposing_is_meaningful:
+        contrast_verb = "successfully outpacing" if is_positive else "outweighing support from"
+        summary = (f"{ticker}'s forecast is heavily {verb} by {_casual_label(driver['label'])}, "
+                    f"{contrast_verb} {_casual_label(opposing['label'])}.")
+    elif driver:
+        summary = f"{ticker}'s forecast is heavily {verb} by {_casual_label(driver['label'])}."
+    else:
+        summary = f"{ticker}'s forecast shows mixed, offsetting signals with no single dominant driver."
+
+    return {"emoji": emoji, "sentiment_label": sentiment_label, "summary": summary}
+
+
+# ==========================================
+# Real-Time SHAP Explainability Endpoint
 # ==========================================
 @app.get("/api/stock/explain")
 def explain_stock(ticker: str = "AAPL"):
     """
     SHAP feature-attribution breakdown for the XGBoost quantile model's
     'mid' (50th percentile) prediction — explains WHY the model produced
-    the return forecast it did, not just what the forecast is.
+    the return forecast it did, not just what the forecast is. Also
+    returns a natural-language TL;DR and per-feature plain-English
+    sentences + status badges for the frontend's Simple/Advanced toggle.
     """
     if best_model is None:
         raise HTTPException(status_code=503, detail="Model is not loaded.")
@@ -584,21 +769,32 @@ def explain_stock(ticker: str = "AAPL"):
 
     contributions = []
     for i, col in enumerate(feature_cols):
+        raw_val = round(float(X_latest[col].iloc[0]), 4)
+        shap_val = round(float(shap_values[0][i]), 6)
+        direction = "bullish" if shap_values[0][i] >= 0 else "bearish"
+        nl = describe_feature(col, raw_val, shap_val, direction)
         contributions.append({
             "feature": col,
             "label": FEATURE_LABELS.get(col, col),
-            "raw_value": round(float(X_latest[col].iloc[0]), 4),
-            "shap_value": round(float(shap_values[0][i]), 6),
-            "direction": "bullish" if shap_values[0][i] >= 0 else "bearish",
+            "raw_value": raw_val,
+            "shap_value": shap_val,
+            "direction": direction,
+            "sentence": nl["sentence"],
+            "badge": nl["badge"],
+            "badge_color": nl["badge_color"],
         })
     contributions.sort(key=lambda c: abs(c["shap_value"]), reverse=True)
+
+    final_prediction = round(base_value + sum(c["shap_value"] for c in contributions), 6)
+    tldr = generate_tldr(clean_ticker, contributions, final_prediction)
 
     return {
         "ticker": clean_ticker,
         "model_used": "XGBoost Quantile Regressor (50th percentile)",
         "base_value": round(base_value, 6),
-        "final_prediction": round(base_value + sum(c["shap_value"] for c in contributions), 6),
+        "final_prediction": final_prediction,
         "contributions": contributions,
+        "tldr": tldr,
     }
 
 @app.get("/api/options/chain")

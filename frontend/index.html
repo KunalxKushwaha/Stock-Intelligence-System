@@ -886,29 +886,40 @@
   </div>
 
   <!-- Model Explainability (SHAP) Modal -->
-  <div id="explain-modal" class="modal hidden">
-    <div class="modal-content" style="max-width: 600px;">
-      <div class="modal-header">
-        <h3>🧠 Model Explainability (SHAP)</h3>
-        <button onclick="closeExplainModal()" class="close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size: 12px; color: var(--text-muted);">
-          Feature-attribution breakdown for <strong id="explain-ticker-label">AAPL</strong>'s current XGBoost prediction — each bar shows how much that signal pushed the forecast up (green) or down (red) from the model's baseline expectation.
+<div id="explain-modal" class="modal hidden">
+  <div class="modal-content" style="max-width: 640px;">
+    <div class="modal-header">
+      <h3>🧠 Model Explainability (SHAP)</h3>
+      <button onclick="closeExplainModal()" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <p style="font-size: 12px; color: var(--text-muted); margin:0;">
+          Feature-attribution breakdown for <strong id="explain-ticker-label">AAPL</strong>'s current XGBoost prediction.
         </p>
-        <div id="explain-loading" style="text-align:center; padding: 24px; color: var(--text-muted); font-size: 13px;">
-          Computing SHAP values...
+        <div class="shap-view-toggle">
+          <button onclick="setExplainView('simple')" id="shap-view-simple" class="tf-btn active">Simple</button>
+          <button onclick="setExplainView('advanced')" id="shap-view-advanced" class="tf-btn">Advanced</button>
         </div>
-        <div id="explain-content" class="hidden">
-          <div class="port-summary-box" style="margin-top: 10px;">
-            <div>Model Baseline: <strong id="explain-base">0.00%</strong></div>
-            <div>Final Prediction: <strong id="explain-final">0.00%</strong></div>
-          </div>
-          <div id="explain-bars-container" style="display:flex; flex-direction:column; gap:10px; margin-top:14px;"></div>
+      </div>
+ 
+      <div id="explain-loading" style="text-align:center; padding: 24px; color: var(--text-muted); font-size: 13px;">
+        Computing SHAP values...
+      </div>
+ 
+      <div id="explain-content" class="hidden">
+        <div class="port-summary-box" style="margin-top: 10px;">
+          <div>Model Baseline: <strong id="explain-base">0.00%</strong></div>
+          <div>Final Prediction: <strong id="explain-final">0.00%</strong></div>
         </div>
+ 
+        <div id="explain-tldr" class="explain-tldr"></div>
+ 
+        <div id="explain-bars-container" style="display:flex; flex-direction:column; gap:10px; margin-top:14px;"></div>
       </div>
     </div>
   </div>
+</div>
 
   <div id="fact-modal" class="modal hidden">
     <div class="modal-content">
