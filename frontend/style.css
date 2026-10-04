@@ -488,8 +488,6 @@ body.modal-open {
 /* Options Chain Modal Styling */
 .options-modal-content {
   max-width: 1100px;
-  max-height: 90vh;
-  overflow-y: auto;
 }
 
 .options-top-bar {
@@ -516,13 +514,14 @@ body.modal-open {
   color: var(--text-muted);
 }
 
-.opt-control-group select {
+.opt-control-group select, .opt-control-group input {
   background: var(--bg-surface);
   color: var(--text-main);
   border: 1px solid var(--border-color);
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 12px;
+  outline: none;
 }
 
 .opt-stat-item {
@@ -653,17 +652,77 @@ body.modal-open {
   width: 90%;
   max-width: 540px;
   padding: 24px;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
 .portfolio-modal-content {
   max-width: 680px;
 }
 
+/* Portfolio Optimizer Styling & Layout */
+.optimizer-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  background: var(--bg-surface-alt);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+#opt-allocations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.opt-alloc-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 50px;
+  gap: 12px;
+  align-items: center;
+  background: var(--bg-surface);
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.alloc-ticker {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.alloc-bar-wrapper {
+  height: 14px;
+  background: var(--bg-surface-alt);
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.alloc-bar-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 7px;
+  transition: width 0.5s ease;
+}
+
+.alloc-pct {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
 /* Social Trading & Sentiment Analytics Styling */
 .social-modal-content {
   max-width: 880px;
-  max-height: 88vh;
-  overflow-y: auto;
 }
 
 .social-sentiment-banner {

@@ -13,7 +13,7 @@
   <header class="navbar">
     <div class="nav-brand">
       <span class="brand-icon">⚡</span>
-      <h1>AlphaTerminal <span class="badge-version">v2.9.3</span></h1>
+      <h1>AlphaTerminal <span class="badge-version">v2.9.4</span></h1>
     </div>
     
     <form class="search-form" onsubmit="handleSearch(event)">
@@ -276,7 +276,7 @@
         <button onclick="closeSocialModal()" class="close-btn">&times;</button>
       </div>
       
-      <!-- Social Tabs (Exact 3 tabs requested) -->
+      <!-- Social Tabs -->
       <div class="modal-tabs">
         <button onclick="switchSocialTab('ideas', this)" class="port-tab-btn active" id="tab-btn-social-ideas">💡 Community Ideas</button>
         <button onclick="switchSocialTab('leaderboard', this)" class="port-tab-btn" id="tab-btn-social-leaders">🏆 Top Portfolios (Copy-Trading)</button>
@@ -285,10 +285,8 @@
 
       <div class="modal-body">
         
-        <!-- Tab 1: Community Setups & Live Social Feeds -->
         <div id="social-ideas-view">
           
-          <!-- Live Sentiment Summary Banner (Tradestie Reddit + Finnhub) -->
           <div class="social-sentiment-banner">
             <div class="sent-badge-box">
               <span class="sent-badge-title">🔥 Reddit (r/wallstreetbets)</span>
@@ -316,15 +314,13 @@
           <div id="social-ideas-container" class="social-ideas-stream"></div>
         </div>
 
-        <!-- Tab 2: Top Portfolios & Copy-Trading -->
         <div id="social-leaderboard-view" class="hidden">
           <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-            Verified quants and algorithmic traders ranked by 180-day Sharpe ratio and return efficiency. Click <strong>Copy Portfolio</strong> to replicate their active asset weights directly into your synced broker account.
+            Verified SEC Form 13F regulatory filings from leading institutional portfolios. Click <strong>Copy Portfolio</strong> to replicate their active asset weights directly into your synced broker account.
           </p>
           <div id="social-leaderboard-container" class="leaderboard-grid"></div>
         </div>
 
-        <!-- Tab 3: Publish Setup -->
         <div id="social-publish-view" class="hidden">
           <form onsubmit="handlePublishSetup(event)" class="publish-idea-form">
             <div class="form-row">
@@ -577,6 +573,7 @@
     </div>
   </div>
 
+  <!-- Portfolio Modal (Includes the New AI Optimizer) -->
   <div id="portfolio-modal" class="modal hidden">
     <div class="modal-content portfolio-modal-content">
       <div class="modal-header">
@@ -586,11 +583,14 @@
       <div class="modal-tabs">
         <button onclick="switchPortfolioTab('watchlist', this)" class="port-tab-btn active">Watchlist</button>
         <button onclick="switchPortfolioTab('positions', this)" class="port-tab-btn">Broker Positions & Cash</button>
+        <button onclick="switchPortfolioTab('optimizer', this)" class="port-tab-btn">🤖 AI Portfolio Optimizer</button>
       </div>
       <div class="modal-body">
+        
         <div id="tab-watchlist">
           <div id="watchlist-items-container"></div>
         </div>
+        
         <div id="tab-positions" class="hidden">
           <div class="port-summary-box">
             <div>Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
@@ -598,6 +598,53 @@
           </div>
           <div id="positions-items-container"></div>
         </div>
+
+        <div id="tab-optimizer" class="hidden">
+          
+          <!-- Fixed Flex Layout Container -->
+          <div class="optimizer-controls">
+            <div style="display: flex; gap: 16px;">
+              <div class="opt-control-group">
+                <label>Risk Profile:</label>
+                <select id="opt-risk-select">
+                  <option value="balanced">Balanced (Sharpe Focus)</option>
+                  <option value="conservative">Conservative (Low Volatility)</option>
+                  <option value="aggressive">Aggressive (High Momentum)</option>
+                </select>
+              </div>
+              <div class="opt-control-group">
+                <label>Capital ($):</label>
+                <input type="number" id="opt-capital-input" value="100000" style="width: 120px;">
+              </div>
+            </div>
+            <button onclick="runPortfolioOptimization()" class="btn-primary" style="padding: 8px 16px;">Run Black-Litterman</button>
+          </div>
+          
+          <div id="optimizer-results-container" class="hidden">
+            <div class="prediction-cards-grid" style="margin-bottom: 14px; gap: 10px;">
+              <div class="pred-card" style="padding: 12px;">
+                <span class="card-label">Expected Annual Return</span>
+                <span class="card-value text-gain" id="opt-res-ret" style="font-size: 18px;">--</span>
+              </div>
+              <div class="pred-card" style="padding: 12px;">
+                <span class="card-label">Portfolio Volatility</span>
+                <span class="card-value" id="opt-res-vol" style="font-size: 18px;">--</span>
+              </div>
+              <div class="pred-card" style="padding: 12px;">
+                <span class="card-label">Sharpe Ratio</span>
+                <span class="card-value text-gain" id="opt-res-sharpe" style="font-size: 18px;">--</span>
+              </div>
+            </div>
+            
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-transform: uppercase;">Optimized Target Weights</div>
+            <div id="opt-allocations-list"></div>
+            
+            <button onclick="executePortfolioRebalance()" class="btn-primary" style="width: 100%; margin-top: 16px; background-color: var(--accent-green);">⚡ Execute Auto-Rebalance in Broker</button>
+            <div id="opt-rebalance-msg" class="hidden" style="font-size: 12px; margin-top: 8px; text-align: center; color: var(--accent-green);"></div>
+          </div>
+          <div id="optimizer-loading" class="hidden" style="text-align: center; padding: 30px; color: var(--text-muted);">Running covariance matrices and AI views...</div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -624,7 +671,6 @@
   <!-- Unified Draggable Chatbot Root -->
   <div id="chatbot-root" class="chatbot-root">
     
-    <!-- Chat Drawer Window (Anchored ABOVE the launcher button) -->
     <div id="chatbot-window" class="chatbot-window hidden">
       <div class="chatbot-header">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -640,7 +686,6 @@
         </div>
       </div>
 
-      <!-- Quick Preset Prompt Suggestions -->
       <div class="chat-quick-suggestions">
         <button onclick="sendQuickPrompt('Where do I write custom technical indicators?')">⚡ Custom Indicators</button>
         <button onclick="sendQuickPrompt('Calculate my PnL if I buy 25 shares of the active stock')">💰 25 Shares PnL</button>
@@ -648,7 +693,6 @@
         <button onclick="sendQuickPrompt('How do I run a backtest simulation?')">📈 Backtesting</button>
       </div>
 
-      <!-- Messages Stream -->
       <div id="chat-messages-container" class="chat-messages-container">
         <div class="chat-msg bot-msg">
           <div class="msg-content">
@@ -657,14 +701,12 @@
         </div>
       </div>
 
-      <!-- Form Input -->
       <form class="chat-input-area" onsubmit="handleChatSubmit(event)">
         <input type="text" id="chat-input" placeholder="Ask about terminal features, Greeks, PnL..." autocomplete="off">
         <button type="submit" id="chat-send-btn" class="btn-primary">Send</button>
       </form>
     </div>
 
-    <!-- Collapsed Launcher Button (Always docked below the window) -->
     <div id="chatbot-launcher" class="chatbot-launcher" onclick="toggleChatbot()" title="Open/Close AlphaBot Copilot">
       <span>🤖</span>
       <span class="launcher-label">AlphaBot Copilot</span>
