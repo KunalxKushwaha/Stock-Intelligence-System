@@ -12,63 +12,75 @@
 
   <!-- Top Navigation Bar -->
   <header class="navbar">
-  <div class="navbar-main">
-    
-    <!-- BRAND -->
-    <div class="nav-brand">
-      <span class="brand-icon">⚡</span>
-      <h1>AlphaTerminal <span class="badge-version">v2.9.3</span></h1>
-    </div>
-
-
-    <!-- SEARCH -->
-    <form
-      class="search-form"
-      onsubmit="handleSearch(event)"
-    >
-      <div class="search-box">
-
-        <span class="search-icon">⌕</span>
-
-        <input
-          type="text"
-          id="ticker-input"
-          placeholder="Search ticker or asset..."
-          value="AAPL"
-          autocomplete="off"
-        />
-
-        <span class="search-hint">
-          Enter
-        </span>
-
+    <div class="navbar-main">
+      <!-- BRAND -->
+      <div class="nav-brand">
+        <span class="brand-icon">⚡</span>
+        <h1>AlphaTerminal <span class="badge-version">v2.9.6</span></h1>
       </div>
 
-      <button
-        type="submit"
-        class="analyze-btn"
-      >
-        <span>Analyze</span>
-        <span class="analyze-arrow">↗</span>
-      </button>
-    </form>
+      <!-- SEARCH -->
+      <form class="search-form" onsubmit="handleSearch(event)">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input type="text" id="ticker-input" placeholder="Search ticker or asset..." value="AAPL" autocomplete="off"/>
+          <span class="search-hint">Enter</span>
+        </div>
+        <button type="submit" class="analyze-btn">
+          <span>Analyze</span>
+          <span class="analyze-arrow">↗</span>
+        </button>
+      </form>
 
-    <div class="nav-actions">
-      <button onclick="openStocksModal()" class="btn-secondary" id="tour-asset-dir">📂 Asset Directory</button>
-      <button onclick="openOptionsModal()" class="btn-secondary" id="tour-options-btn">⛓️ Options & Greeks</button>
-      <button onclick="openBacktestModal()" class="btn-secondary" id="tour-backtest">📈 Backtest</button>
-      <button onclick="openBrokerModal()" class="btn-secondary" id="broker-btn">⚡ Broker Router</button>
-      <button onclick="openPortfolioModal()" class="btn-secondary" id="portfolio-btn">📊 Portfolio Sync</button>
-      <button onclick="startTour()" class="btn-secondary">🎓 Tour</button>
-      <button onclick="toggleTheme()" class="btn-secondary" id="theme-btn">🌙 Dark</button>
+      <!-- Nav User Actions -->
+      <div class="nav-user-actions">
+        <div class="account-menu-wrap" id="account-menu-wrap">
+          <button class="account-trigger" id="auth-nav-btn">
+            <span class="account-trigger-icon account-icon">◉</span>
+            <span class="account-trigger-label">Sign In</span>
+            <span class="account-trigger-chevron account-chevron"></span>
+          </button>
+          <div class="account-popover hidden" id="account-popover">
+            <div class="account-profile">
+              <div class="account-avatar" id="account-avatar">A</div>
+              <div class="account-information">
+                <strong id="account-name">Account</strong>
+                <span id="account-email">Not signed in</span>
+              </div>
+            </div>
+            <div class="account-divider"></div>
+            <button onclick="logout()" class="account-logout">
+              <span style="font-size: 14px;">⏻</span> Sign Out
+            </button>
+          </div>
+        </div>
+        <button onclick="toggleTheme()" class="theme-btn" id="theme-btn">🌙 Dark</button>
+      </div>
     </div>
 
-  </div>
-
-</header>
+    <!-- Tier 2: Dedicated Modular Toolbar -->
+    <div class="navbar-toolbar">
+      <div class="toolbar-inner">
+        <span class="toolbar-label">WORKSPACE</span>
+        <div class="toolbar-divider"></div>
+        <button onclick="openStocksModal()" class="toolbar-btn" id="tour-asset-dir"><span class="toolbar-icon">📂</span> Asset Directory</button>
+        <button onclick="openOptionsModal()" class="toolbar-btn" id="tour-options-btn"><span class="toolbar-icon">⛓️</span> Options & Greeks</button>
+        <button onclick="openBacktestModal()" class="toolbar-btn" id="tour-backtest"><span class="toolbar-icon">📈</span> Backtest Lab</button>
+        <button onclick="openBrokerModal()" class="toolbar-btn" id="broker-btn"><span class="toolbar-icon">⚡</span> Broker Router</button>
+        <button onclick="openPortfolioModal()" class="toolbar-btn" id="portfolio-btn"><span class="toolbar-icon">📊</span> Portfolio Sync</button>
+        <button onclick="openSocialModal()" class="toolbar-btn" id="tour-social-btn"><span class="toolbar-icon">👥</span> Social & 13F</button>
+        <button onclick="startTour()" class="toolbar-btn"><span class="toolbar-icon">🎓</span> Guided Tour</button>
+        <div class="toolbar-spacer"></div>
+        <div class="market-status">
+          <span class="status-dot"></span>
+          <span>IEX FEED ACTIVE</span>
+        </div>
+      </div>
+    </div>
+  </header>
 
   <!-- Quick Asset Chips -->
-  <div class="quick-chips-bar" id="tour-step-1">
+  <div class="quick-chips-bar">
     <span class="chips-label">Quick Assets:</span>
     <div id="peer-chips-container" style="display: flex; gap: 8px; overflow-x: auto;">
       <button onclick="selectTicker('AAPL')">Apple (AAPL)</button>
@@ -88,8 +100,6 @@
 
   <!-- Main Dashboard Container -->
   <main class="dashboard hidden" id="dashboard">
-
-    <!-- Top Summary Banner -->
     <section class="summary-banner">
       <div class="asset-identity" id="tour-step-1">
         <h2 id="val-company-name">Apple Inc. (Equities)</h2>
@@ -121,10 +131,8 @@
 
     <!-- Harmonized Professional Terminal Grid -->
     <div class="dashboard-grid">
-
-      <!-- Left Column: Professional Charting Suite & Technicals -->
+      <!-- Left Column -->
       <div class="left-column">
-        
         <section class="card charting-suite-card" id="tour-step-7">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div>
@@ -137,13 +145,11 @@
                 <button onclick="setChartType('candlestick')" id="btn-type-candle" class="tf-btn active">Candles</button>
                 <button onclick="setChartType('line')" id="btn-type-line" class="tf-btn">Line</button>
               </div>
-
               <div class="chart-indicators-group" style="display: flex; gap: 6px;">
                 <button onclick="toggleIndicator('sma')" id="ind-sma-btn" class="tf-btn" title="Toggle 20-Period SMA">SMA</button>
                 <button onclick="toggleIndicator('bb')" id="ind-bb-btn" class="tf-btn" title="Toggle Bollinger Bands">Bollinger</button>
                 <button onclick="toggleScriptEditor()" id="ind-script-btn" class="tf-btn" title="Open Proprietary Script Editor">⚡ Pine Script</button>
               </div>
-
               <div class="timeframe-group" style="display: flex; gap: 4px;">
                 <button onclick="setTimeframe('1D', this)" class="tf-btn">1D</button>
                 <button onclick="setTimeframe('1W', this)" class="tf-btn">1W</button>
@@ -157,7 +163,6 @@
           <div class="chart-container-wrapper" style="position: relative; width: 100%; height: 480px; margin-top: 12px;">
             <div id="tradingview-chart-container" style="width: 100%; height: 100%;"></div>
           </div>
-
           <div class="sub-chart-pane-wrapper" style="position: relative; width: 100%; height: 120px; margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 8px;">
             <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">VOLUME & MOMENTUM PANE</div>
             <div id="tradingview-subchart-container" style="width: 100%; height: 100px;"></div>
@@ -170,21 +175,12 @@
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 16px;">⚡</span>
               <div>
-                <h3 style="color: var(--accent-blue);">Proprietary Script Editor (Pine Script Environment)</h3>
-                <p style="font-size: 11px; color: var(--text-muted);">Write custom user indicators and execute custom mathematical studies on price series.</p>
+                <h3 style="color: var(--accent-blue);">Proprietary Script Editor</h3>
               </div>
             </div>
             <button onclick="toggleScriptEditor()" class="close-btn" style="font-size: 18px;">&times;</button>
           </div>
           <div class="script-editor-body" style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <label style="font-size: 12px; color: var(--text-muted);">Preset Studies:</label>
-              <select id="script-preset-select" onchange="loadScriptPreset()" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                <option value="custom">Custom Expression</option>
-                <option value="sma_crossover">Dual SMA Crossover Signal</option>
-                <option value="momentum_band">Momentum Upper Deviation Band</option>
-              </select>
-            </div>
             <textarea id="script-textarea" rows="4" style="width: 100%; background: var(--bg-main); color: var(--accent-green); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-family: 'Courier New', Courier, monospace; font-size: 13px; outline: none; resize: vertical;" placeholder="// Write your custom study expression here..."></textarea>
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span id="script-status-msg" style="font-size: 11px; color: var(--text-muted);">Ready for compilation.</span>
@@ -218,15 +214,16 @@
             </div>
           </div>
         </section>
-
       </div>
 
-      <!-- Right Column: AI Recommendations, News & Order Book Stream -->
+      <!-- Right Column -->
       <div class="right-column">
-
         <section class="card" id="tour-step-6">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-            <h3>🤖 Hybrid AI Recommendation</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h3>🤖 Hybrid AI Recommendation</h3>
+              <button onclick="openExplainModal()" class="btn-secondary" style="font-size: 10px; padding: 2px 6px; border-radius: 4px;">🧠 Explain</button>
+            </div>
             <div style="display: flex; align-items: center; gap: 6px;">
               <label style="font-size: 11px; color: var(--text-muted);">Risk Profile:</label>
               <select id="risk-profile-select" onchange="onRiskProfileChange()" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); color: var(--text-main); padding: 3px 6px; border-radius: 4px; font-size: 11px;">
@@ -287,13 +284,11 @@
             </div>
           </div>
         </section>
-
       </div>
-
     </div>
   </main>
 
-  <!-- Social Trading & Public Copy-Trading Modal -->
+  <!-- Social Trading Modal -->
   <div id="social-modal" class="modal hidden">
     <div class="modal-content social-modal-content">
       <div class="modal-header">
@@ -306,36 +301,27 @@
         </div>
         <button onclick="closeSocialModal()" class="close-btn">&times;</button>
       </div>
-      
-      <!-- Social Tabs -->
       <div class="modal-tabs">
         <button onclick="switchSocialTab('ideas', this)" class="port-tab-btn active" id="tab-btn-social-ideas">💡 Community Ideas</button>
         <button onclick="switchSocialTab('leaderboard', this)" class="port-tab-btn" id="tab-btn-social-leaders">🏆 Top Portfolios (Copy-Trading)</button>
-        <button onclick="switchSocialTab('publish', this)" class="port-tab-btn" id="tab-btn-social-publish">✍️ Publish Setup</button>
+        <button onclick="switchSocialTab('publish', this)" class="port-tab-btn" id="tab-btn-social-publish">✍️️ Publish Setup</button>
       </div>
-
       <div class="modal-body">
-        
         <div id="social-ideas-view">
-          
           <div class="social-sentiment-banner">
             <div class="sent-badge-box">
               <span class="sent-badge-title">🔥 Reddit (r/wallstreetbets)</span>
               <div class="sent-badge-val">
-                <span id="sent-reddit-rank">Rank #--</span> | 
-                <span id="sent-reddit-mentions">-- mentions</span> | 
-                <strong id="sent-reddit-orientation" class="text-gain">Bullish</strong>
+                <span id="sent-reddit-rank">Rank #--</span> | <span id="sent-reddit-mentions">-- mentions</span> | <strong id="sent-reddit-orientation" class="text-gain">Bullish</strong>
               </div>
             </div>
             <div class="sent-badge-box">
               <span class="sent-badge-title">🏛️ Finnhub Institutional Sentiment</span>
               <div class="sent-badge-val">
-                <span>Reddit: <strong id="sent-finnhub-reddit">--%</strong></span> | 
-                <span>Twitter: <strong id="sent-finnhub-twitter">--%</strong></span>
+                <span>Reddit: <strong id="sent-finnhub-reddit">--%</strong></span> | <span>Twitter: <strong id="sent-finnhub-twitter">--%</strong></span>
               </div>
             </div>
           </div>
-
           <div class="social-filter-bar">
             <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Filter by Ticker:</span>
             <button onclick="filterSocialFeed('ALL', this)" class="tf-btn active social-filter-btn" id="btn-social-filter-all">All Assets</button>
@@ -344,140 +330,64 @@
           </div>
           <div id="social-ideas-container" class="social-ideas-stream"></div>
         </div>
-
         <div id="social-leaderboard-view" class="hidden">
-          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-            Verified SEC Form 13F regulatory filings from leading institutional portfolios. Click <strong>Copy Portfolio</strong> to replicate their active asset weights directly into your synced broker account.
-          </p>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Verified SEC Form 13F regulatory filings. Click <strong>Copy Portfolio</strong> to replicate active asset weights directly into your synced broker account.</p>
           <div id="social-leaderboard-container" class="leaderboard-grid"></div>
         </div>
-
         <div id="social-publish-view" class="hidden">
           <form onsubmit="handlePublishSetup(event)" class="publish-idea-form">
             <div class="form-row">
-              <div class="form-group">
-                <label>Author Display Name:</label>
-                <input type="text" id="pub-author" placeholder="e.g. Alex Quant" required>
-              </div>
-              <div class="form-group">
-                <label>Handle / Tag:</label>
-                <input type="text" id="pub-handle" placeholder="e.g. @alex_trades" required>
-              </div>
+              <div class="form-group"><label>Author Name:</label><input type="text" id="pub-author" required></div>
+              <div class="form-group"><label>Handle / Tag:</label><input type="text" id="pub-handle" required></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>Asset Ticker:</label>
-                <input type="text" id="pub-ticker" required style="text-transform: uppercase;">
-              </div>
-              <div class="form-group">
-                <label>Trade Direction:</label>
-                <select id="pub-side">
-                  <option value="LONG">LONG (Bullish)</option>
-                  <option value="SHORT">SHORT (Bearish)</option>
-                </select>
-              </div>
+              <div class="form-group"><label>Asset Ticker:</label><input type="text" id="pub-ticker" required style="text-transform: uppercase;"></div>
+              <div class="form-group"><label>Trade Direction:</label><select id="pub-side"><option value="LONG">LONG (Bullish)</option><option value="SHORT">SHORT (Bearish)</option></select></div>
             </div>
             <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
-              <div class="form-group">
-                <label>Entry Price ($):</label>
-                <input type="number" id="pub-entry" step="0.01" required>
-              </div>
-              <div class="form-group">
-                <label>Target Price ($):</label>
-                <input type="number" id="pub-target" step="0.01" required>
-              </div>
-              <div class="form-group">
-                <label>Stop Loss ($):</label>
-                <input type="number" id="pub-stop" step="0.01" required>
-              </div>
+              <div class="form-group"><label>Entry Price ($):</label><input type="number" id="pub-entry" step="0.01" required></div>
+              <div class="form-group"><label>Target Price ($):</label><input type="number" id="pub-target" step="0.01" required></div>
+              <div class="form-group"><label>Stop Loss ($):</label><input type="number" id="pub-stop" step="0.01" required></div>
             </div>
-            <div class="form-group">
-              <label>Strategy Thesis & Analysis:</label>
-              <textarea id="pub-thesis" rows="3" placeholder="Explain your risk corridors, market regime context, or macro triggers..." required></textarea>
-            </div>
-            <div class="form-group">
-              <label>Attach Pine Script Study (Optional):</label>
-              <input type="text" id="pub-pine" placeholder="e.g. Close * 1.022 (allows community to load your indicator onto their chart)">
-            </div>
-            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Publish Setup to Public Feed</button>
+            <div class="form-group"><label>Strategy Thesis:</label><textarea id="pub-thesis" rows="3" required></textarea></div>
+            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Publish Setup</button>
             <div id="pub-status-msg" class="hidden" style="font-size: 12px; margin-top: 8px; text-align: center;"></div>
           </form>
         </div>
-
       </div>
     </div>
   </div>
 
-  <!-- Real-Time Options Chains & Greeks Analytics Modal -->
+  <!-- Options Modal -->
   <div id="options-modal" class="modal hidden">
     <div class="modal-content options-modal-content">
       <div class="modal-header">
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 20px;">⛓️</span>
           <div>
-            <h3 id="options-modal-title">Options Chains & Greeks Analytics (AAPL)</h3>
+            <h3 id="options-modal-title">Options Chains & Greeks Analytics</h3>
             <p style="font-size: 12px; color: var(--text-muted);">Real-time Black-Scholes Greeks, Implied Volatility Smiles, & Multi-Strike Matrices</p>
           </div>
         </div>
         <button onclick="closeOptionsModal()" class="close-btn">&times;</button>
       </div>
       <div class="modal-body">
-        
-        <!-- Options Control Stats Bar -->
         <div class="options-top-bar">
-          <div class="opt-control-group">
-            <label>Expiration Date:</label>
-            <select id="options-expiry-select" onchange="onOptionsExpiryChange()"></select>
-          </div>
-          <div class="opt-stat-item">
-            <span>Spot Price:</span>
-            <strong id="opt-spot-price">$305.59</strong>
-          </div>
-          <div class="opt-stat-item">
-            <span>ATM Implied Vol (IV):</span>
-            <strong id="opt-atm-iv" class="text-gain">28.0%</strong>
-          </div>
-          <div class="opt-stat-item">
-            <span>Expected Move (±):</span>
-            <strong id="opt-exp-move">$14.20</strong>
-          </div>
-          <div class="opt-stat-item">
-            <span>Put/Call Ratio:</span>
-            <strong id="opt-pcr">0.88</strong>
-          </div>
+          <div class="opt-control-group"><label>Expiration Date:</label><select id="options-expiry-select" onchange="onOptionsExpiryChange()"></select></div>
+          <div class="opt-stat-item"><span>Spot Price:</span><strong id="opt-spot-price">$0.00</strong></div>
+          <div class="opt-stat-item"><span>ATM Implied Vol (IV):</span><strong id="opt-atm-iv" class="text-gain">--%</strong></div>
+          <div class="opt-stat-item"><span>Expected Move (±):</span><strong id="opt-exp-move">$0.00</strong></div>
         </div>
-
-        <!-- Options View Switcher Tabs -->
         <div class="modal-tabs" style="margin-top: 10px;">
           <button onclick="switchOptionsTab('matrix', this)" class="port-tab-btn active" id="tab-btn-opt-matrix">Options Chain Matrix</button>
           <button onclick="switchOptionsTab('smile', this)" class="port-tab-btn" id="tab-btn-opt-smile">Implied Volatility (IV) Smile</button>
         </div>
-
-        <!-- Options Chain Matrix Table View -->
         <div id="options-matrix-view">
           <div class="options-table-wrapper">
             <table class="options-table">
               <thead>
-                <tr class="opt-super-header">
-                  <th colspan="6" class="call-header-group">CALLS</th>
-                  <th class="strike-header-col">STRIKE</th>
-                  <th colspan="6" class="put-header-group">PUTS</th>
-                </tr>
-                <tr class="opt-sub-header">
-                  <th>OI</th>
-                  <th>Delta</th>
-                  <th>Theta</th>
-                  <th>IV</th>
-                  <th>Bid</th>
-                  <th>Ask</th>
-                  <th class="strike-cell-header">Price</th>
-                  <th>Bid</th>
-                  <th>Ask</th>
-                  <th>IV</th>
-                  <th>Delta</th>
-                  <th>Theta</th>
-                  <th>OI</th>
-                </tr>
+                <tr class="opt-super-header"><th colspan="6" class="call-header-group">CALLS</th><th class="strike-header-col">STRIKE</th><th colspan="6" class="put-header-group">PUTS</th></tr>
+                <tr class="opt-sub-header"><th>OI</th><th>Delta</th><th>Theta</th><th>IV</th><th>Bid</th><th>Ask</th><th class="strike-cell-header">Price</th><th>Bid</th><th>Ask</th><th>IV</th><th>Delta</th><th>Theta</th><th>OI</th></tr>
               </thead>
               <tbody id="options-table-body">
                 <tr><td colspan="13" style="text-align:center; padding: 20px;">Loading institutional options chains...</td></tr>
@@ -485,18 +395,15 @@
             </table>
           </div>
         </div>
-
-        <!-- Implied Volatility Smile Visualizer View -->
         <div id="options-smile-view" class="hidden">
           <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">IMPLIED VOLATILITY SMILE & SKEW (STRIKE VS. IV%)</div>
           <div id="options-smile-container" class="iv-smile-grid"></div>
         </div>
-
       </div>
     </div>
   </div>
 
-  <!-- Automated Backtesting Framework Modal -->
+  <!-- Backtest Modal -->
   <div id="backtest-modal" class="modal hidden">
     <div class="modal-content" style="max-width: 750px;">
       <div class="modal-header">
@@ -504,81 +411,45 @@
         <button onclick="closeBacktestModal()" class="close-btn">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 12px; color: var(--text-muted);">Simulating historical performance of the XGBoost + Conformal Quantile Strategy against a Buy-and-Hold benchmark over the past 180 trading sessions.</p>
-        
         <div class="prediction-cards-grid" style="margin-top: 8px;">
           <div class="pred-card">
             <span class="card-label">Strategy Final Value</span>
-            <span class="card-value text-gain" id="bt-strat-val">$12,450</span>
-            <span class="card-sub" id="bt-strat-ret">+24.50% Return</span>
+            <span class="card-value text-gain" id="bt-strat-val">$0</span>
+            <span class="card-sub" id="bt-strat-ret">--% Return</span>
           </div>
           <div class="pred-card">
             <span class="card-label">Buy & Hold Benchmark</span>
-            <span class="card-value" id="bt-bh-val">$10,980</span>
-            <span class="card-sub" id="bt-bh-ret">+9.80% Return</span>
+            <span class="card-value" id="bt-bh-val">$0</span>
+            <span class="card-sub" id="bt-bh-ret">--% Return</span>
           </div>
           <div class="pred-card">
             <span class="card-label">Strategy Outperformance</span>
-            <span class="card-value text-gain" id="bt-outperf">+14.70%</span>
-            <span class="card-sub">Sharpe Ratio: <strong id="bt-sharpe">1.84</strong></span>
+            <span class="card-value text-gain" id="bt-outperf">--%</span>
+            <span class="card-sub">Sharpe Ratio: <strong id="bt-sharpe">--</strong></span>
           </div>
         </div>
         <!-- Performance Analytics -->
         <div style="margin-top: 14px;">
-          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
-            PERFORMANCE ANALYTICS
-          </div>
-
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">PERFORMANCE ANALYTICS</div>
           <div class="prediction-cards-grid">
-            <div class="pred-card">
-              <span class="card-label">Maximum Drawdown</span>
-              <span class="card-value" id="bt-max-drawdown">-7.29%</span>
-              <span class="card-sub">Peak-to-trough decline</span>
-            </div>
-
-            <div class="pred-card">
-              <span class="card-label">Total Trades</span>
-              <span class="card-value" id="bt-total-trades">15</span>
-              <span class="card-sub">Completed trades</span>
-            </div>
-
-            <div class="pred-card">
-              <span class="card-label">Win Rate</span>
-              <span class="card-value text-gain" id="bt-win-rate">60%</span>
-              <span class="card-sub" id="bt-trade-record">9 Wins / 6 Losses</span>
-            </div>
-
-            <div class="pred-card">
-              <span class="card-label">Average Trade</span>
-              <span class="card-value" id="bt-avg-trade">+1.13%</span>
-              <span class="card-sub">Average completed trade</span>
-            </div>
-
-            <div class="pred-card">
-              <span class="card-label">Best Trade</span>
-              <span class="card-value text-gain" id="bt-best-trade">+6.08%</span>
-              <span class="card-sub">Highest trade return</span>
-            </div>
-
-            <div class="pred-card">
-              <span class="card-label">Worst Trade</span>
-              <span class="card-value" id="bt-worst-trade">-6.17%</span>
-              <span class="card-sub">Lowest trade return</span>
-            </div>
+            <div class="pred-card"><span class="card-label">Max Drawdown</span><span class="card-value text-risk" id="bt-max-drawdown">--%</span></div>
+            <div class="pred-card"><span class="card-label">Total Trades</span><span class="card-value" id="bt-total-trades">--</span></div>
+            <div class="pred-card"><span class="card-label">Win Rate</span><span class="card-value text-gain" id="bt-win-rate">--%</span><span class="card-sub" id="bt-trade-record"></span></div>
+            <div class="pred-card"><span class="card-label">Average Trade</span><span class="card-value" id="bt-avg-trade">--%</span></div>
+            <div class="pred-card"><span class="card-label">Best Trade</span><span class="card-value text-gain" id="bt-best-trade">--%</span></div>
+            <div class="pred-card"><span class="card-label">Worst Trade</span><span class="card-value text-risk" id="bt-worst-trade">--%</span></div>
           </div>
         </div>
-
         <div style="margin-top: 16px;">
-          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">HISTORICAL EQUITY CURVE COMPARISON ($10,000 START)</div>
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">HISTORICAL EQUITY CURVE COMPARISON</div>
           <div id="backtest-chart-container" style="width: 100%; height: 260px; background: var(--bg-surface-alt); border-radius: 8px; border: 1px solid var(--border-color); position: relative;"></div>
         </div>
-
         <button onclick="runBacktestSimulation()" class="btn-primary" style="width: 100%; margin-top: 14px;">Re-run Backtest Simulation</button>
       </div>
     </div>
   </div>
 
-  <!-- Other Modals -->
+  <!-- Asset Directory Modal -->
   <div id="stocks-modal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-header">
@@ -592,6 +463,7 @@
     </div>
   </div>
 
+  <!-- Broker Router Modal -->
   <div id="broker-modal" class="modal hidden">
     <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
@@ -599,106 +471,52 @@
         <button onclick="closeBrokerModal()" class="close-btn">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>Broker Gateway:</label>
-          <select id="broker-select">
-            <option value="alpaca">Alpaca Paper Trading API</option>
-            <option value="simulated">Simulated Institutional Gateway</option>
-          </select>
+        <div class="form-group"><label>Broker Gateway:</label><select id="broker-select"><option value="alpaca">Alpaca Paper Trading API</option></select></div>
+        <div class="form-row">
+          <div class="form-group"><label>Ticker:</label><input type="text" id="broker-ticker-input" readonly></div>
+          <div class="form-group"><label>Side:</label><select id="broker-side-select"><option value="buy">BUY (Long)</option><option value="sell">SELL (Short)</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Ticker:</label>
-            <input type="text" id="broker-ticker-input" readonly>
-          </div>
-          <div class="form-group">
-            <label>Side:</label>
-            <select id="broker-side-select">
-              <option value="buy">BUY (Long)</option>
-              <option value="sell">SELL (Short)</option>
-            </select>
-          </div>
+          <div class="form-group"><label>Quantity / Units:</label><input type="number" id="broker-qty-input" value="10" min="0.1" step="any"></div>
+          <div class="form-group"><label>Order Type:</label><select id="broker-type-select" onchange="toggleLimitPriceField()"><option value="market">Market Order</option><option value="limit">Limit Order</option></select></div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Quantity / Units:</label>
-            <input type="number" id="broker-qty-input" value="10" min="0.1" step="any">
-          </div>
-          <div class="form-group">
-            <label>Order Type:</label>
-            <select id="broker-type-select" onchange="toggleLimitPriceField()">
-              <option value="market">Market Order</option>
-              <option value="limit">Limit Order</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group hidden" id="limit-price-group">
-          <label>Limit Price ($):</label>
-          <input type="number" id="broker-limit-input" step="0.01" placeholder="Enter target limit execution price">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Stop-Loss ($):</label>
-            <input type="number" id="broker-sl-input" step="0.01" placeholder="Risk protection floor">
-          </div>
-          <div class="form-group">
-            <label>Take-Profit ($):</label>
-            <input type="number" id="broker-tp-input" step="0.01" placeholder="Profit target ceiling">
-          </div>
-        </div>
+        <div class="form-group hidden" id="limit-price-group"><label>Limit Price ($):</label><input type="number" id="broker-limit-input" step="0.01"></div>
         <button onclick="submitBrokerOrder()" class="btn-primary" style="width: 100%; margin-top: 10px;">Execute Order via API</button>
-        <div id="broker-response-box" class="hidden" style="margin-top: 12px; font-size: 13px; padding: 14px; background: var(--bg-surface-alt); border-radius: 6px; border: 1px solid var(--border-color);"></div>
+        <div id="broker-response-box" class="hidden" style="margin-top: 12px; font-size: 13px; padding: 14px; background: var(--bg-surface-alt); border-radius: 6px;"></div>
       </div>
     </div>
   </div>
 
-  <!-- Auth Modal — paste anywhere near your other modals, e.g. right before #portfolio-modal -->
-<div id="auth-modal" class="modal hidden">
-  <div class="modal-content" style="max-width: 420px;">
-    <div class="modal-header">
-      <h3>👤 Account</h3>
-      <button onclick="closeAuthModal()" class="close-btn">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-tabs">
-        <button onclick="switchAuthTab('login')" class="port-tab-btn auth-tab-btn active" data-tab="login">Sign In</button>
-        <button onclick="switchAuthTab('register')" class="port-tab-btn auth-tab-btn" data-tab="register">Create Account</button>
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3>👤 Account</h3>
+        <button onclick="closeAuthModal()" class="close-btn">&times;</button>
       </div>
-
-      <div id="auth-error-box" class="hidden" style="margin: 12px 0; padding: 10px 12px; font-size: 13px; border-radius: 6px; background: rgba(198,50,59,0.12); color: var(--accent-red, #c6323b); border: 1px solid var(--accent-red, #c6323b);"></div>
-
-      <div id="auth-form-login">
-        <div class="form-group">
-          <label>Email:</label>
-          <input type="email" id="login-email-input" placeholder="[email protected]">
+      <div class="modal-body">
+        <div class="modal-tabs">
+          <button onclick="switchAuthTab('login')" class="port-tab-btn auth-tab-btn active" data-tab="login">Sign In</button>
+          <button onclick="switchAuthTab('register')" class="port-tab-btn auth-tab-btn" data-tab="register">Create Account</button>
         </div>
-        <div class="form-group">
-          <label>Password:</label>
-          <input type="password" id="login-password-input" placeholder="••••••••">
+        <div id="auth-error-box" class="hidden" style="margin: 12px 0; padding: 10px 12px; font-size: 13px; border-radius: 6px; background: rgba(198,50,59,0.12); color: var(--accent-red); border: 1px solid var(--accent-red);"></div>
+        
+        <div id="auth-form-login">
+          <div class="form-group"><label>Email:</label><input type="email" id="login-email-input" placeholder="user@domain.com"></div>
+          <div class="form-group"><label>Password:</label><input type="password" id="login-password-input" placeholder="••••••••"></div>
+          <button onclick="submitLogin()" class="btn-primary" style="width: 100%; margin-top: 10px;">Sign In</button>
         </div>
-        <button onclick="submitLogin()" class="btn-primary" style="width: 100%; margin-top: 10px;">Sign In</button>
-      </div>
-
-      <div id="auth-form-register" class="hidden">
-        <div class="form-group">
-          <label>Name:</label>
-          <input type="text" id="register-name-input" placeholder="Your name">
+        <div id="auth-form-register" class="hidden">
+          <div class="form-group"><label>Name:</label><input type="text" id="register-name-input" placeholder="Your name"></div>
+          <div class="form-group"><label>Email:</label><input type="email" id="register-email-input" placeholder="user@domain.com"></div>
+          <div class="form-group"><label>Password:</label><input type="password" id="register-password-input" placeholder="At least 8 characters"></div>
+          <button onclick="submitRegister()" class="btn-primary" style="width: 100%; margin-top: 10px;">Create Account</button>
         </div>
-        <div class="form-group">
-          <label>Email:</label>
-          <input type="email" id="register-email-input" placeholder="[email protected]">
-        </div>
-        <div class="form-group">
-          <label>Password:</label>
-          <input type="password" id="register-password-input" placeholder="At least 8 characters">
-        </div>
-        <button onclick="submitRegister()" class="btn-primary" style="width: 100%; margin-top: 10px;">Create Account</button>
       </div>
     </div>
   </div>
-</div>
 
-  <!-- Portfolio Modal (Includes the New AI Optimizer) -->
+  <!-- Portfolio Modal (Live Alpaca & Optimizer) -->
   <div id="portfolio-modal" class="modal hidden">
     <div class="modal-content portfolio-modal-content">
       <div class="modal-header">
@@ -707,40 +525,24 @@
       </div>
       <div class="modal-tabs">
         <button onclick="switchPortfolioTab('watchlist', this)" class="port-tab-btn active">Watchlist</button>
-        <button onclick="switchPortfolioTab('positions', this)" class="port-tab-btn">Broker Positions & Cash</button>
+        <button onclick="switchPortfolioTab('positions', this)" class="port-tab-btn">Live Alpaca Positions</button>
         <button onclick="switchPortfolioTab('optimizer', this)" class="port-tab-btn">🤖 AI Portfolio Optimizer</button>
       </div>
       <div class="modal-body">
-        
         <div id="tab-watchlist">
           <div id="watchlist-items-container"></div>
         </div>
+
         <div id="tab-positions" class="hidden">
           <div class="port-summary-box">
-            <div>Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
+            <div>Live Portfolio Value: <strong id="port-total-val">$0.00</strong></div>
             <div>Buying Power: <strong id="port-cash-val">$0.00</strong></div>
           </div>
-          <div class="form-row" style="margin-bottom: 12px;">
-            <div class="form-group">
-              <label>Ticker:</label>
-              <input type="text" id="pos-ticker-input" placeholder="AAPL">
-            </div>
-            <div class="form-group">
-              <label>Qty:</label>
-              <input type="number" id="pos-qty-input" placeholder="10" step="any">
-            </div>
-            <div class="form-group">
-              <label>Buy Price ($):</label>
-              <input type="number" id="pos-price-input" placeholder="150.00" step="0.01">
-            </div>
-          </div>
-          <button onclick="addPortfolioPosition()" class="btn-primary" style="width: 100%; margin-bottom: 12px;">+ Add Position</button>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Positions are synced in real-time with the Alpaca Paper Trading API. Manage execution via the Broker Router or the AI Optimizer.</p>
           <div id="positions-items-container"></div>
         </div>
 
         <div id="tab-optimizer" class="hidden">
-          
-          <!-- Fixed Flex Layout Container -->
           <div class="optimizer-controls">
             <div style="display: flex; gap: 16px;">
               <div class="opt-control-group">
@@ -761,73 +563,45 @@
           
           <div id="optimizer-results-container" class="hidden">
             <div class="prediction-cards-grid" style="margin-bottom: 14px; gap: 10px;">
-              <div class="pred-card" style="padding: 12px;">
-                <span class="card-label">Expected Annual Return</span>
-                <span class="card-value text-gain" id="opt-res-ret" style="font-size: 18px;">--</span>
-              </div>
-              <div class="pred-card" style="padding: 12px;">
-                <span class="card-label">Portfolio Volatility</span>
-                <span class="card-value" id="opt-res-vol" style="font-size: 18px;">--</span>
-              </div>
-              <div class="pred-card" style="padding: 12px;">
-                <span class="card-label">Sharpe Ratio</span>
-                <span class="card-value text-gain" id="opt-res-sharpe" style="font-size: 18px;">--</span>
-              </div>
+              <div class="pred-card"><span class="card-label">Expected Return</span><span class="card-value text-gain" id="opt-res-ret" style="font-size: 18px;">--</span></div>
+              <div class="pred-card"><span class="card-label">Portfolio Volatility</span><span class="card-value" id="opt-res-vol" style="font-size: 18px;">--</span></div>
+              <div class="pred-card"><span class="card-label">Sharpe Ratio</span><span class="card-value text-gain" id="opt-res-sharpe" style="font-size: 18px;">--</span></div>
             </div>
-            
             <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; text-transform: uppercase;">Optimized Target Weights</div>
             <div id="opt-allocations-list"></div>
-            
-            <button onclick="executePortfolioRebalance()" class="btn-primary" style="width: 100%; margin-top: 16px; background-color: var(--accent-green);">⚡ Execute Auto-Rebalance in Broker</button>
+            <button onclick="executePortfolioRebalance()" class="btn-primary" style="width: 100%; margin-top: 16px; background-color: var(--accent-green);">⚡ Execute Auto-Rebalance in Alpaca</button>
             <div id="opt-rebalance-msg" class="hidden" style="font-size: 12px; margin-top: 8px; text-align: center; color: var(--accent-green);"></div>
           </div>
           <div id="optimizer-loading" class="hidden" style="text-align: center; padding: 30px; color: var(--text-muted);">Running covariance matrices and AI views...</div>
         </div>
-
       </div>
     </div>
   </div>
 
-
+  <!-- Explain Modal -->
   <div id="explain-modal" class="modal hidden">
-  <div class="modal-content" style="max-width: 600px;">
-    <div class="modal-header">
-      <h3>🧠 Model Explainability (SHAP)</h3>
-      <button onclick="closeExplainModal()" class="close-btn">&times;</button>
-    </div>
-    <div class="modal-body">
-      <p style="font-size: 12px; color: var(--text-muted);">
-        Feature-attribution breakdown for <strong id="explain-ticker-label">AAPL</strong>'s current XGBoost prediction — each bar shows how much that signal pushed the forecast up (green) or down (red) from the model's baseline expectation.
-      </p>
-      <div id="explain-loading" style="text-align:center; padding: 24px; color: var(--text-muted); font-size: 13px;">
-        Computing SHAP values...
-      </div>
-      <div id="explain-content" class="hidden">
-        <div class="port-summary-box" style="margin-top: 10px;">
-          <div>Model Baseline: <strong id="explain-base">0.00%</strong></div>
-          <div>Final Prediction: <strong id="explain-final">0.00%</strong></div>
-        </div>
-        <div id="explain-bars-container" style="display:flex; flex-direction:column; gap:10px; margin-top:14px;"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-  <div id="fact-modal" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
-        <h3>🔍 Rumor & Fact-Check Audit</h3>
-        <button onclick="closeFactModal()" class="close-btn">&times;</button>
+        <h3>🧠 Model Explainability (SHAP)</h3>
+        <button onclick="closeExplainModal()" class="close-btn">&times;</button>
       </div>
       <div class="modal-body">
-        <h4 id="fact-modal-claim" style="font-weight: 500; margin-bottom: 10px; font-size: 15px;"></h4>
-        <p>Publisher: <strong id="fact-modal-publisher"></strong></p>
-        <p>Rating: <strong id="fact-modal-rating" style="color: var(--accent-red);"></strong></p>
-        <p id="fact-modal-desc" style="font-size: 13px; color: var(--text-muted); margin-top: 10px;"></p>
+        <p style="font-size: 12px; color: var(--text-muted);">
+          Feature-attribution breakdown for <strong id="explain-ticker-label">AAPL</strong>'s current XGBoost prediction — each bar shows how much that signal pushed the forecast up (green) or down (red) from the model's baseline expectation.
+        </p>
+        <div id="explain-loading" style="text-align:center; padding: 24px; color: var(--text-muted); font-size: 13px;">Computing SHAP values...</div>
+        <div id="explain-content" class="hidden">
+          <div class="port-summary-box" style="margin-top: 10px;">
+            <div>Model Baseline: <strong id="explain-base">0.00%</strong></div>
+            <div>Final Prediction: <strong id="explain-final">0.00%</strong></div>
+          </div>
+          <div id="explain-bars-container" style="display:flex; flex-direction:column; gap:10px; margin-top:14px;"></div>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- Tour Modal (Floating Center Bottom) -->
   <div id="tour-modal" class="modal hidden">
     <div class="modal-content tour-modal-content">
       <div class="modal-header">
@@ -837,7 +611,7 @@
       <div class="modal-body">
         <p id="tour-description" style="font-size: 14px; line-height: 1.5; margin-bottom: 16px;"></p>
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span id="tour-step-number" style="font-size: 12px; color: var(--text-muted);">Step 1 of 11</span>
+          <span id="tour-step-number" style="font-size: 12px; color: var(--text-muted);">Step 1</span>
           <div style="display: flex; gap: 8px;">
             <button onclick="prevTourStep()" id="tour-prev-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 13px;">Previous</button>
             <button onclick="nextTourStep()" id="tour-next-btn" class="btn-primary" style="padding: 6px 12px; font-size: 13px;">Next</button>
@@ -849,7 +623,6 @@
 
   <!-- Unified Draggable Chatbot Root -->
   <div id="chatbot-root" class="chatbot-root">
-    
     <div id="chatbot-window" class="chatbot-window hidden">
       <div class="chatbot-header">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -864,33 +637,24 @@
           <button onclick="toggleChatbot()" class="close-btn" style="color: #fff; font-size: 20px;">&times;</button>
         </div>
       </div>
-
       <div class="chat-quick-suggestions">
-        <button onclick="sendQuickPrompt('Where do I write custom technical indicators?')">⚡ Custom Indicators</button>
         <button onclick="sendQuickPrompt('Calculate my PnL if I buy 25 shares of the active stock')">💰 25 Shares PnL</button>
         <button onclick="sendQuickPrompt('Explain the 90% Conformal Safety Floor')">🛡️ 90% Risk Bounds</button>
         <button onclick="sendQuickPrompt('How do I run a backtest simulation?')">📈 Backtesting</button>
       </div>
-
       <div id="chat-messages-container" class="chat-messages-container">
         <div class="chat-msg bot-msg">
-          <div class="msg-content">
-            Hello! I am <strong>AlphaBot</strong>, your quantitative terminal copilot. Ask me how to use any platform feature, interpret Greeks and risk bounds, or calculate your trade profits!
-          </div>
+          <div class="msg-content">Hello! I am <strong>AlphaBot</strong>, your quantitative terminal copilot. Ask me how to use any platform feature!</div>
         </div>
       </div>
-
       <form class="chat-input-area" onsubmit="handleChatSubmit(event)">
         <input type="text" id="chat-input" placeholder="Ask about terminal features, Greeks, PnL..." autocomplete="off">
         <button type="submit" id="chat-send-btn" class="btn-primary">Send</button>
       </form>
     </div>
-
-    <div id="chatbot-launcher" class="chatbot-launcher" onclick="toggleChatbot()" title="Open/Close AlphaBot Copilot">
-      <span>🤖</span>
-      <span class="launcher-label">AlphaBot Copilot</span>
+    <div id="chatbot-launcher" class="chatbot-launcher" onclick="toggleChatbot()">
+      <span>🤖</span><span class="launcher-label">AlphaBot Copilot</span>
     </div>
-
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
