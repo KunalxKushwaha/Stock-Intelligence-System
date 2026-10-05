@@ -9,10 +9,11 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import requests
-import yfinance as yf
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root_dir))
+backend_dir = Path(__file__).resolve().parent
+sys.path.insert(0, str(backend_dir))
 
 load_dotenv(root_dir / '.env')
 
@@ -28,18 +29,8 @@ from ML.feature_engineering.build_features import engineer_features
 from data_pipeline.news_data.fetcher import fetch_company_news 
 from recommendation_engine.engine import compute_hybrid_recommendation
 from chatbot.service import process_terminal_chat
-from social_trading.service import (
-    get_community_feed,
-    publish_community_idea,
-    toggle_like_community_idea,
-    get_trader_leaderboard,
-    calculate_copy_allocation,
-    fetch_tradestie_sentiment,
-    fetch_finnhub_social_sentiment
-)
-from portfolio_optimization.service import optimize_black_litterman
 
-app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.9.5")
+app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.9.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,16 +40,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-models_dir = root_dir / 'ML' / 'models'
+app.include_router(auth_router)
+app.include_router(sync_router)
 
+@app.on_event("startup")
+async def on_startup():
+    await connect_to_mongo()
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await close_mongo_connection()
+
+models_dir = root_dir / 'ML' / 'models'
 best_model, hmm_model = None, None
 try:
     best_model = joblib.load(models_dir / 'best_stock_model.pkl')
     hmm_model = joblib.load(models_dir / 'hmm_regime_model.pkl')
-    print("✅ Loaded XGBoost & HMM models.")
+    print(f"✅ Loaded XGBoost & HMM models. (best_model type: {type(best_model).__name__})")
 except Exception as e:
-    print(f"⚠️ XGBoost/HMM load warning: {e}")
+    print(f"⚠️ Model loading error: {e}")
 
+def predict_mid_quantile(X):
+    """Returns the mid/median prediction as a flat array, one value per
+    input row — works whether best_model is a dict of 3 models or a
+    single quantile model."""
+    if isinstance(best_model, dict):
+        return best_model['mid'].predict(X)
+    preds = np.asarray(best_model.predict(X))
+    if preds.ndim == 1:
+        return preds
+    if preds.shape[1] == 1:
+        return preds[:, 0]
+    return preds[:, preds.shape[1] // 2]
 hybrid_nn_model = None
 active_hybrid_architecture = "Empirically Benchmarked GRU/LSTM Hybrid"
 try:
@@ -73,39 +86,6 @@ try:
             print("✅ Loaded Fallback LSTM Model.")
 except Exception as e:
     print(f"⚠️ Hybrid model load warning: {e}")
-
-ALPACA_BASE_URL = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
-
-def get_alpaca_headers():
-    api_key = os.getenv("ALPACA_API_KEY")
-    sec_key = os.getenv("ALPACA_SECRET_KEY")
-    if not api_key or not sec_key:
-        raise ValueError("Missing ALPACA_API_KEY or ALPACA_SECRET_KEY in your .env file.")
-    return {
-        "APCA-API-KEY-ID": api_key,
-        "APCA-API-SECRET-KEY": sec_key
-    }
-
-class SocialConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_json(message)
-            except Exception:
-                self.disconnect(connection)
-
-social_manager = SocialConnectionManager()
 
 def norm_cdf(x: float) -> float:
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
@@ -210,32 +190,9 @@ class OrderRequest(BaseModel):
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
 
-class RebalanceAsset(BaseModel):
-    ticker: str
-    optimized_weight_pct: float
-
-class RebalanceRequest(BaseModel):
-    assets: List[RebalanceAsset]
-
 class ChatRequest(BaseModel):
     message: str
     context: Optional[dict] = None
-
-class PublishIdeaRequest(BaseModel):
-    author: str
-    handle: str
-    ticker: str
-    side: str
-    entry_price: float
-    target_price: float
-    stop_loss: float
-    win_rate: Optional[str] = "75%"
-    thesis: str
-    pine_script: Optional[str] = None
-
-class CopyTradeRequest(BaseModel):
-    trader_id: str
-    capital: float = 5000.0
 
 @app.get("/api/health")
 def health_check():
@@ -246,300 +203,13 @@ def handle_chat_endpoint(req: ChatRequest):
     try:
         terminal_ctx = req.context or {}
         res = process_terminal_chat(req.message, terminal_ctx)
-        return {"status": "success", "reply": res.get("reply", ""), "follow_ups": res.get("follow_ups", [])}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.websocket("/ws/social")
-async def websocket_social(websocket: WebSocket):
-    await social_manager.connect(websocket)
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        social_manager.disconnect(websocket)
-
-@app.get("/api/social/feed")
-def get_social_feed(ticker: str = "AAPL", filter: str = "ALL", user_id: Optional[str] = "default_user", refresh: bool = False):
-    try:
-        ideas = get_community_feed(ticker=ticker, filter_mode=filter, user_id=user_id, force_refresh=refresh)
-        return {"status": "success", "count": len(ideas), "ideas": ideas}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/social/sentiment")
-def get_social_sentiment(ticker: str = "AAPL"):
-    try:
-        tradestie = fetch_tradestie_sentiment(ticker)
-        finnhub = fetch_finnhub_social_sentiment(ticker)
-        return {"status": "success", "ticker": ticker.upper().strip(), "tradestie_reddit": tradestie, "finnhub_sentiment": finnhub}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/social/publish")
-async def publish_social_idea(req: PublishIdeaRequest):
-    try:
-        created = publish_community_idea(req.dict())
-        await social_manager.broadcast({"type": "NEW_IDEA", "idea": created})
-        return {"status": "success", "idea": created}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/social/like/{idea_id}")
-async def toggle_social_like(idea_id: str, user_id: str = Query("default_user")):
-    res = toggle_like_community_idea(idea_id, user_id)
-    if res.get("status") == "error":
-        raise HTTPException(status_code=404, detail="Idea not found")
-    await social_manager.broadcast({"type": "LIKE_UPDATE", "idea_id": idea_id, "likes": res["likes"]})
-    return res
-
-@app.get("/api/social/leaderboard")
-def get_social_leaderboard():
-    try:
-        leaders = get_trader_leaderboard()
-        return {"status": "success", "leaderboard": leaders}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/social/copy")
-async def copy_top_trader(req: CopyTradeRequest):
-    res = calculate_copy_allocation(req.trader_id, req.capital)
-    if res.get("status") == "error":
-        raise HTTPException(status_code=404, detail=res.get("message"))
-
-    try:
-        headers = get_alpaca_headers()
-        for order in res["orders"]:
-            alloc_dollars = order["allocated_dollars"]
-            if alloc_dollars < 1.0: continue
-            payload = {"symbol": order["ticker"].upper(), "notional": str(round(alloc_dollars, 2)), "side": "buy", "type": "market", "time_in_force": "day"}
-            resp = requests.post(f"{ALPACA_BASE_URL}/v2/orders", headers=headers, json=payload)
-            resp.raise_for_status()
-
-        await social_manager.broadcast({"type": "COPY_EXECUTED", "trader_id": res["trader_id"]})
-        return {"status": "success", "allocation": res, "message": "Institutional portfolio weights successfully routed to live broker."}
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/broker/account")
-def get_broker_account():
-    """Fetches real account cash and open positions directly from Alpaca."""
-    try:
-        headers = get_alpaca_headers()
-        acc_resp = requests.get(f"{ALPACA_BASE_URL}/v2/account", headers=headers)
-        acc_resp.raise_for_status()
-        acc_data = acc_resp.json()
-        
-        pos_resp = requests.get(f"{ALPACA_BASE_URL}/v2/positions", headers=headers)
-        pos_resp.raise_for_status()
-        pos_data = pos_resp.json()
-        
-        formatted_positions = []
-        for p in pos_data:
-            formatted_positions.append({
-                "ticker": p["symbol"],
-                "shares": float(p["qty"]),
-                "buyPrice": float(p["avg_entry_price"]),
-                "currentPrice": float(p["current_price"]),
-                "marketValue": float(p["market_value"]),
-                "unrealizedPL": float(p["unrealized_pl"]),
-                "unrealizedPLPct": float(p["unrealized_plpc"]) * 100
-            })
-        
         return {
-            "sync_mode": "live_alpaca_api",
-            "portfolio_value": float(acc_data["portfolio_value"]),
-            "cash": float(acc_data["cash"]),
-            "buying_power": float(acc_data["buying_power"]),
-            "positions": formatted_positions
-        }
-    except ValueError as ve:
-        return {"error": str(ve), "sync_mode": "unconfigured", "portfolio_value": 0, "cash": 0, "buying_power": 0, "positions": []}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Broker API Error: {str(e)}")
-
-@app.post("/api/broker/order")
-def execute_broker_order(order: OrderRequest):
-    try:
-        headers = get_alpaca_headers()
-        payload = {"symbol": order.ticker.upper().strip(), "qty": str(order.qty), "side": order.side.lower(), "type": order.order_type.lower(), "time_in_force": "gtc" if order.order_type.lower() == "limit" else "day"}
-        if order.limit_price and order.order_type.lower() == "limit": payload["limit_price"] = str(order.limit_price)
-        resp = requests.post(f"{ALPACA_BASE_URL}/v2/orders", headers=headers, json=payload)
-        resp.raise_for_status()
-        order_data = resp.json()
-        return {"status": "success", "message": "Real order routed to Alpaca.", "order_details": {"order_id": order_data["id"], "ticker": order_data["symbol"], "side": order_data["side"].upper(), "qty": float(order_data["qty"]), "execution_status": order_data["status"].upper()}}
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/portfolio/optimize")
-def get_optimized_portfolio(capital: float = 10000.0, risk_profile: str = "balanced"):
-    try:
-        return optimize_black_litterman(capital, risk_profile)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/broker/rebalance")
-def execute_broker_rebalance(req: RebalanceRequest):
-    try:
-        headers = get_alpaca_headers()
-        requests.delete(f"{ALPACA_BASE_URL}/v2/positions", headers=headers).raise_for_status()
-        
-        acc_resp = requests.get(f"{ALPACA_BASE_URL}/v2/account", headers=headers)
-        acc_resp.raise_for_status()
-        portfolio_value = float(acc_resp.json()["portfolio_value"])
-        
-        for asset in req.assets:
-            alloc_dollars = (asset.optimized_weight_pct / 100.0) * portfolio_value
-            if alloc_dollars < 1.0: continue
-            payload = {"symbol": asset.ticker.upper(), "notional": str(round(alloc_dollars, 2)), "side": "buy", "type": "market", "time_in_force": "day"}
-            requests.post(f"{ALPACA_BASE_URL}/v2/orders", headers=headers, json=payload)
-        
-        return {"status": "success", "message": "Portfolio liquidated and rebalanced to optimal AI weights via Alpaca."}
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/options/chain")
-def get_options_chain(ticker: str = "AAPL", days: int = 30):
-    """Fetches real live options chains dynamically via yfinance."""
-    clean_ticker = ticker.upper().strip()
-    try:
-        stock = yf.Ticker(clean_ticker)
-        exps = stock.options
-        if not exps: raise ValueError("No options found for ticker.")
-
-        target_date = datetime.today() + timedelta(days=days)
-        best_exp = exps[0]
-        min_diff = 9999
-        for d in exps:
-            dt = datetime.strptime(d, "%Y-%m-%d")
-            diff = abs((dt - target_date).days)
-            if diff < min_diff:
-                min_diff = diff
-                best_exp = d
-                
-        opt = stock.option_chain(best_exp)
-        calls, puts = opt.calls, opt.puts
-        spot_price = stock.history(period="1d")['Close'].iloc[-1]
-        
-        strikes = sorted(list(set(calls['strike']).intersection(set(puts['strike']))))
-        strikes = sorted(strikes, key=lambda x: abs(x - spot_price))[:15] # Top 15 closest to ATM
-        strikes.sort()
-
-        chain_rows = []
-        iv_smile = []
-        T = max(min_diff, 1) / 365.0
-
-        for strike in strikes:
-            c_row = calls[calls['strike'] == strike].iloc[0]
-            p_row = puts[puts['strike'] == strike].iloc[0]
-            
-            c_iv = float(c_row.get('impliedVolatility', 0.2))
-            p_iv = float(p_row.get('impliedVolatility', 0.2))
-            
-            greeks = calculate_bs_greeks(spot_price, strike, T, 0.045, c_iv)
-            
-            chain_rows.append({
-                "strike": float(strike),
-                "is_atm": abs(strike - spot_price) < (spot_price * 0.015),
-                "call": {
-                    "bid": float(c_row.get('bid', 0.0)),
-                    "ask": float(c_row.get('ask', 0.0)),
-                    "last": float(c_row.get('lastPrice', 0.0)),
-                    "iv": round(c_iv * 100, 1),
-                    "delta": greeks['call_delta'],
-                    "theta": greeks['call_theta'],
-                    "gamma": greeks['gamma'],
-                    "vega": greeks['vega'],
-                    "volume": int(c_row.get('volume') or 0),
-                    "open_interest": int(c_row.get('openInterest') or 0)
-                },
-                "put": {
-                    "bid": float(p_row.get('bid', 0.0)),
-                    "ask": float(p_row.get('ask', 0.0)),
-                    "last": float(p_row.get('lastPrice', 0.0)),
-                    "iv": round(p_iv * 100, 1),
-                    "delta": greeks['put_delta'],
-                    "theta": greeks['put_theta'],
-                    "gamma": greeks['gamma'],
-                    "vega": greeks['vega'],
-                    "volume": int(p_row.get('volume') or 0),
-                    "open_interest": int(p_row.get('openInterest') or 0)
-                }
-            })
-            iv_smile.append({"strike": float(strike), "iv": round(c_iv * 100, 1)})
-
-        expirations_fmt = [{"days": abs((datetime.strptime(e, "%Y-%m-%d") - datetime.today()).days), "label": e} for e in exps[:5]]
-        
-        return {
-            "ticker": clean_ticker,
-            "underlying_price": round(spot_price, 2),
-            "selected_days": min_diff,
-            "atm_iv": round(calls[calls['strike'] == strikes[len(strikes)//2]].iloc[0]['impliedVolatility'] * 100, 1),
-            "expected_move": round(spot_price * c_iv * math.sqrt(T), 2),
-            "put_call_ratio": 0.88,
-            "expirations": expirations_fmt,
-            "chain": chain_rows,
-            "iv_smile": iv_smile
+            "status": "success",
+            "reply": res.get("reply", ""),
+            "follow_ups": res.get("follow_ups", [])
         }
     except Exception as e:
-        print(f"⚠️ yfinance Options error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch real options chain.")
-
-@app.websocket("/ws/orderbook/{ticker}")
-async def websocket_orderbook(websocket: WebSocket, ticker: str):
-    """Pulls REAL L1 Market Data via Alpaca Free IEX Feed to anchor the orderbook."""
-    await websocket.accept()
-    clean_ticker = ticker.upper().strip()
-    try:
-        headers = get_alpaca_headers()
-    except:
-        headers = None
-        
-    try:
-        while True:
-            # 1. Fetch exact Real-Time IEX quote
-            try:
-                if not headers: raise ValueError("No Alpaca Keys")
-                url = f"https://data.alpaca.markets/v2/stocks/{clean_ticker}/quotes/latest"
-                resp = requests.get(url, headers=headers).json()
-                bid = float(resp['quote']['bp'])
-                ask = float(resp['quote']['ap'])
-                if bid == 0 or ask == 0: raise ValueError("Market Closed")
-            except:
-                # Fallback purely for terminal testing when markets are closed
-                asset_info = ASSET_DIRECTORY.get(clean_ticker, {"base": 305.59})
-                bid = round(asset_info["base"] - 0.05, 2)
-                ask = round(asset_info["base"] + 0.05, 2)
-                
-            spread = round(ask - bid, 2)
-            
-            # Synthesize L2 depth securely anchored around the verified live quote
-            bids = [
-                {"price": bid, "size": random.randint(200, 1500)},
-                {"price": round(bid - 0.02, 2), "size": random.randint(500, 3000)},
-                {"price": round(bid - 0.05, 2), "size": random.randint(1200, 6000)}
-            ]
-            asks = [
-                {"price": ask, "size": random.randint(200, 1500)},
-                {"price": round(ask + 0.02, 2), "size": random.randint(500, 3000)},
-                {"price": round(ask + 0.05, 2), "size": random.randint(1200, 6000)}
-            ]
-
-            payload = {
-                "ticker": clean_ticker,
-                "level1": {"bid": bid, "ask": ask, "spread": spread},
-                "level2": {"bids": bids, "asks": asks}
-            }
-            await websocket.send_json(payload)
-            await asyncio.sleep(1.0)
-    except WebSocketDisconnect:
-        pass
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stock/analyze")
 def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str = "balanced"):
@@ -660,6 +330,92 @@ def analyze_stock(ticker: str = "AAPL", confidence: int = 90, risk_profile: str 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+# ==========================================
+# Real-Time Options Chains & Greeks Endpoint (Time-Varying Smile)
+# ==========================================
+@app.get("/api/stock/explain")
+def explain_stock(ticker: str = "AAPL"):
+    """
+    SHAP feature-attribution breakdown for the XGBoost quantile model's
+    'mid' (50th percentile) prediction — explains WHY the model produced
+    the return forecast it did, not just what the forecast is.
+    """
+    if best_model is None:
+        raise HTTPException(status_code=503, detail="Model is not loaded.")
+
+    clean_ticker = ticker.upper().strip()
+    asset_info = ASSET_DIRECTORY.get(clean_ticker, {"name": clean_ticker, "class": "Equities", "base": 150.0})
+
+    df = None
+    try:
+        df = engineer_features(ticker="AAPL" if asset_info["class"] != "Equities" else clean_ticker)
+    except Exception:
+        pass
+
+    base_p = asset_info["base"]
+    if df is None or df.empty:
+        dates = pd.date_range(end=pd.Timestamp.today(), periods=120, freq='B')
+        prices = base_p + np.cumsum(np.random.normal(0, base_p * 0.005, 120))
+        df = pd.DataFrame({
+            'Date': dates, 'Close': prices, 'VIX_Close': 16.5, 'Log_Return': 0.001,
+            'RSI_14': 52.0, 'MACD': 1.1, 'SMA_Ratio': 1.02,
+            'BB_Lower': prices * 0.95, 'BB_Upper': prices * 1.05
+        })
+    else:
+        last_actual = float(df['Close'].iloc[-1])
+        if last_actual > 0:
+            scale_ratio = base_p / last_actual
+            df['Close'] = df['Close'] * scale_ratio
+            df['BB_Upper'] = df['BB_Upper'] * scale_ratio
+            df['BB_Lower'] = df['BB_Lower'] * scale_ratio
+
+    latest_row = df.iloc[-1:]
+    feature_cols = ['Close', 'VIX_Close', 'Log_Return', 'RSI_14', 'MACD', 'SMA_Ratio', 'BB_Lower', 'BB_Upper']
+    for col in feature_cols:
+        if col not in latest_row.columns:
+            latest_row[col] = 0.0
+    X_latest = latest_row[feature_cols]
+
+    FEATURE_LABELS = {
+        'Close': 'Current Price',
+        'VIX_Close': 'Market Volatility (VIX)',
+        'Log_Return': 'Recent Price Momentum',
+        'RSI_14': 'RSI Momentum (14-day)',
+        'MACD': 'MACD Trend Signal',
+        'SMA_Ratio': 'Price vs Moving Average',
+        'BB_Lower': 'Bollinger Band — Lower',
+        'BB_Upper': 'Bollinger Band — Upper',
+    }
+
+    try:
+        import shap
+        background = df[feature_cols].tail(min(30, len(df)))
+        explainer = shap.Explainer(predict_mid_quantile, background)
+        shap_result = explainer(X_latest)
+        shap_values = shap_result.values
+        base_value = float(np.atleast_1d(shap_result.base_values)[0])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SHAP computation failed: {e}")
+
+    contributions = []
+    for i, col in enumerate(feature_cols):
+        contributions.append({
+            "feature": col,
+            "label": FEATURE_LABELS.get(col, col),
+            "raw_value": round(float(X_latest[col].iloc[0]), 4),
+            "shap_value": round(float(shap_values[0][i]), 6),
+            "direction": "bullish" if shap_values[0][i] >= 0 else "bearish",
+        })
+    contributions.sort(key=lambda c: abs(c["shap_value"]), reverse=True)
+
+    return {
+        "ticker": clean_ticker,
+        "model_used": "XGBoost Quantile Regressor (50th percentile)",
+        "base_value": round(base_value, 6),
+        "final_prediction": round(base_value + sum(c["shap_value"] for c in contributions), 6),
+        "contributions": contributions,
+    }
+
 @app.get("/api/options/chain")
 def get_options_chain(ticker: str = "AAPL", days: int = 30):
     clean_ticker = ticker.upper().strip()
@@ -680,7 +436,11 @@ def get_options_chain(ticker: str = "AAPL", days: int = 30):
     T = days_clamped / 365.0
     r = 0.045
 
+    # 1. Term Structure: Short expirations have higher baseline event volatility
     term_atm_iv = round(0.24 + 0.07 / math.sqrt(days_clamped / 14.0 + 0.5), 4)
+
+    # 2. Skew & Curvature scaling: scales inversely with sqrt(T)
+    # Short duration (7d) = steep smile; Long duration (90d) = flattens out
     skew_strength = 0.12 / math.sqrt(T * 3.5)
     curvature_strength = 0.38 / math.sqrt(T * 3.5)
 
@@ -699,6 +459,7 @@ def get_options_chain(ticker: str = "AAPL", days: int = 30):
         strike = round(atm_strike + (idx * strike_step), 2)
         moneyness = (strike - spot) / spot
         
+        # Strike IV depends dynamically on moneyness AND expiration T
         strike_iv = max(0.08, term_atm_iv + curvature_strength * (moneyness ** 2) - skew_strength * moneyness)
         greeks = calculate_bs_greeks(spot, strike, T, r, strike_iv)
 

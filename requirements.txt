@@ -44,6 +44,7 @@ ta
 # ==========================
 matplotlib
 plotly
+shap
 
 # ==========================
 # Backend
@@ -51,6 +52,9 @@ plotly
 fastapi
 uvicorn
 python-multipart
+bcrypt
+python-jose[cryptography]
+pydantic[email]
 
 # ==========================
 # Database
