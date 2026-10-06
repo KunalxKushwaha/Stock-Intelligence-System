@@ -181,8 +181,6 @@ def get_sync_data(request: Request):
     c.execute("SELECT watchlist, settings FROM user_data WHERE email=?", (user["email"],))
     row = c.fetchone()
     conn.close()
-    
-    # Safely inject "light" theme dynamically to prevent jarring UI flashes on new sign-ins
     if row:
         return {
             "watchlist": json.loads(row[0]) if row[0] else ["AAPL"],
@@ -752,13 +750,32 @@ def explain_stock(ticker: str = "AAPL"):
             "shap_value": round(float(shap_values[0][i]), 6),
             "direction": "bullish" if shap_values[0][i] >= 0 else "bearish",
         })
+    
+    # Sort contributions by absolute impact size
     contributions.sort(key=lambda c: abs(c["shap_value"]), reverse=True)
+    
+    # Generate Professional Financial Natural Language Interpretation
+    final_prediction = base_value + sum(c["shap_value"] for c in contributions)
+    net_change = final_prediction - base_value
+    
+    overall_direction = "bullish (positive)" if final_prediction > 0 else "bearish (negative)"
+    top_driver = contributions[0]
+    push_dir = "upward" if top_driver['shap_value'] > 0 else "downward"
+    action = "explore long opportunities or accumulate shares" if final_prediction > 0 else "reduce exposure, tighten stop-losses, or explore short opportunities"
+    
+    summary_text = (
+        f"<strong>1. What the data tells us:</strong> The algorithmic engine projects a <strong>{overall_direction}</strong> target return of {round(final_prediction * 100, 3)}%. "
+        f"The primary catalyst dictating this movement is <strong>{top_driver['label']}</strong>, which forced the expected trajectory {push_dir} by a massive {round(abs(top_driver['shap_value'] * 100), 3)}%.<br><br>"
+        f"<strong>2. Actionable Insights:</strong> If you trust the momentum of the {top_driver['label']} signal, you should <strong>{action}</strong>. "
+        f"If you believe this indicator is a false breakout, you should fade the algorithm's verdict and maintain market neutrality."
+    )
 
     return {
         "ticker": clean_ticker,
-        "model_used": "XGBoost Quantile Regressor (50th percentile)",
+        "model_used": "Institutional Quantitative Engine",
         "base_value": round(base_value, 6),
-        "final_prediction": round(base_value + sum(c["shap_value"] for c in contributions), 6),
+        "final_prediction": round(final_prediction, 6),
+        "summary": summary_text,
         "contributions": contributions,
     }
 

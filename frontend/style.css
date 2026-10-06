@@ -491,7 +491,6 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   gap: 22px;
 }
 
-/* Resolves Issue: Restoring gaps between workspace columns */
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -499,7 +498,6 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   align-items: start;
 }
 
-/* Resolves Issue: Restoring vertical gaps between cards */
 .left-column, .right-column {
   display: flex;
   flex-direction: column;
@@ -605,8 +603,10 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 20px; /* Provides safety margin on very small screens */
 }
 
+/* Scrolling constraint fix applied here */
 .modal-content {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
@@ -614,6 +614,8 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   width: 90%;
   max-width: 540px;
   padding: 24px;
+  max-height: 85vh; /* Prevents overflow */
+  overflow-y: auto; /* Triggers scrolling when content exceeds height */
 }
 
 .portfolio-modal-content { max-width: 640px; }
@@ -763,9 +765,7 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
 
 #auth-error-box { font-weight: 600; }
 
-/* ============================================================
-   Real-Time News Feed Styling
-   ============================================================ */
+/* Real-Time News Feed Styling */
 .news-tab-btn {
   background: var(--bg-surface-alt);
   border: 1px solid var(--border-color);
@@ -781,7 +781,6 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
 
 .feed-container { display: flex; flex-direction: column; gap: 9px; max-height: 380px; overflow-y: auto; padding-right: 3px; }
 
-/* Resolves Issue: Restored flex styling for individual news cards */
 .feed-item {
   display: flex;
   flex-direction: column;
@@ -835,7 +834,7 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
 #tour-modal {
   background: transparent !important;
   backdrop-filter: none !important;
-  pointer-events: none; /* Allows user to interact with the dashboard while touring */
+  pointer-events: none; 
 }
 
 .tour-modal-content {
@@ -850,6 +849,7 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   width: 90%;
   max-width: 480px;
   animation: slideUpTour 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: none; /* overrides global modal scrolling restriction just for the tiny tour box */
 }
 
 @keyframes slideUpTour {
@@ -863,8 +863,23 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
   box-shadow: 0 0 24px var(--accent-blue-glow) !important;
   border-radius: var(--radius-lg);
   position: relative;
-  z-index: 900 !important; /* Pull above sibling elements */
+  z-index: 900 !important; 
   transition: all 0.3s ease;
+}
+
+/* ============================================================
+   Explainability SHAP Modal
+   ============================================================ */
+.explain-summary-box {
+  background: var(--accent-blue-soft);
+  border: 1px solid var(--accent-blue);
+  border-radius: 8px;
+  padding: 14px;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-main);
 }
 
 /* ============================================================

@@ -743,7 +743,7 @@ async function runBacktestSimulation() {
       rightPriceScale: { borderColor: '#374151' },
     });
 
-    btStrategySeries = backtestChart.addLineSeries({ color: '#22c55e', lineWidth: 2, title: 'Strategy (XGB + Conformal)' });
+    btStrategySeries = backtestChart.addLineSeries({ color: '#22c55e', lineWidth: 2, title: 'AI Alpha Strategy' });
     btBenchmarkSeries = backtestChart.addLineSeries({ color: '#3b82f6', lineWidth: 1.5, title: 'Buy & Hold Benchmark' });
 
     const curve = data.equity_curve || [];
@@ -808,11 +808,10 @@ function selectStockFromDirectory(symbol) {
 // ==========================================
 // Guided Tour (Non-Blocking Overlay)
 // ==========================================
-// Resolves Issue: Tour cards explicitly added to cover the entire terminal flow.
 const tourSteps = [
   { id: "tour-step-1", title: "1. Current Asset Price", desc: "Displays live execution price across multi-asset classes." },
-  { id: "tour-step-2", title: "2. Predicted Target Return", desc: "Target return predicted by the multi-asset AI model." },
-  { id: "tour-step-3", title: "3. Conformal Safety Floor", desc: "Downside risk floor via Quantile Conformal XGBoost." },
+  { id: "tour-step-2", title: "2. AI Target Forecast", desc: "Target return predicted by the multi-asset AI model." },
+  { id: "tour-step-3", title: "3. Algorithmic Safety Floor", desc: "Downside risk floor via Advanced Quantile Risk Engine." },
   { id: "tour-step-7", title: "4. Professional Charting", desc: "Interactive TradingView suite with Pine Script support." },
   { id: "tour-step-8", title: "5. Technical Indicators", desc: "Live RSI, VIX volatility, and MACD trend signals." },
   { id: "tour-step-6", title: "6. AI Recommendation", desc: "Hybrid verdict combining ML and market regime analysis." },
@@ -828,7 +827,6 @@ const tourSteps = [
 let currentTourIdx = 0;
 
 function startTour() {
-  // IMPORTANT: Do NOT lock the body scroll. We want the user to be able to scroll to see the highlights.
   document.body.classList.remove('modal-open'); 
   currentTourIdx = 0;
   document.getElementById('tour-modal').classList.remove('hidden');
@@ -850,7 +848,6 @@ function updateTourStep() {
   const targetElem = document.getElementById(step.id);
   if (targetElem) {
     targetElem.classList.add('tour-highlight');
-    // Smooth scroll the target into the middle of the screen
     targetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   document.getElementById('tour-prev-btn').disabled = currentTourIdx === 0;

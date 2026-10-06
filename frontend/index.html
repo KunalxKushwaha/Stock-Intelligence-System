@@ -13,13 +13,11 @@
   <!-- Top Navigation Bar -->
   <header class="navbar">
     <div class="navbar-main">
-      <!-- BRAND -->
       <div class="nav-brand">
         <span class="brand-icon">⚡</span>
         <h1>AlphaTerminal <span class="badge-version">v2.9.6</span></h1>
       </div>
 
-      <!-- SEARCH -->
       <form class="search-form" onsubmit="handleSearch(event)">
         <div class="search-box">
           <span class="search-icon">⌕</span>
@@ -32,7 +30,6 @@
         </button>
       </form>
 
-      <!-- Nav User Actions -->
       <div class="nav-user-actions">
         <div class="account-menu-wrap" id="account-menu-wrap">
           <button class="account-trigger" id="auth-nav-btn">
@@ -66,6 +63,7 @@
         <button onclick="openStocksModal()" class="toolbar-btn" id="tour-asset-dir"><span class="toolbar-icon">📂</span> Asset Directory</button>
         <button onclick="openOptionsModal()" class="toolbar-btn" id="tour-options-btn"><span class="toolbar-icon">⛓️</span> Options & Greeks</button>
         <button onclick="openBacktestModal()" class="toolbar-btn" id="tour-backtest"><span class="toolbar-icon">📈</span> Backtest Lab</button>
+        <button onclick="openExplainModal()" class="toolbar-btn" id="tour-explain-btn"><span class="toolbar-icon">🧠</span> Factor Attribution</button>
         <button onclick="openBrokerModal()" class="toolbar-btn" id="broker-btn"><span class="toolbar-icon">⚡</span> Broker Router</button>
         <button onclick="openPortfolioModal()" class="toolbar-btn" id="portfolio-btn"><span class="toolbar-icon">📊</span> Portfolio Sync</button>
         <button onclick="openSocialModal()" class="toolbar-btn" id="tour-social-btn"><span class="toolbar-icon">👥</span> Social & 13F</button>
@@ -79,7 +77,6 @@
     </div>
   </header>
 
-  <!-- Quick Asset Chips -->
   <div class="quick-chips-bar">
     <span class="chips-label">Quick Assets:</span>
     <div id="peer-chips-container" style="display: flex; gap: 8px; overflow-x: auto;">
@@ -92,13 +89,11 @@
     </div>
   </div>
 
-  <!-- Loading State -->
   <div id="loader" class="loader-container hidden">
     <div class="spinner"></div>
-    <p>Running Multi-Model Inference & Fetching Institutional Feeds...</p>
+    <p>Running Multi-Factor AI Inference & Fetching Institutional Feeds...</p>
   </div>
 
-  <!-- Main Dashboard Container -->
   <main class="dashboard hidden" id="dashboard">
     <section class="summary-banner">
       <div class="asset-identity" id="tour-step-1">
@@ -119,19 +114,17 @@
         <div class="pred-card" id="tour-step-3">
           <span class="card-label">90% Safety Floor (5th Pct)</span>
           <span class="card-value text-risk" id="val-lower">$218.10</span>
-          <span class="card-sub">Conformal Quantile Risk</span>
+          <span class="card-sub">Algorithmic Risk Bounds</span>
         </div>
         <div class="pred-card" id="tour-step-4">
           <span class="card-label">90% Upside Ceiling (95th Pct)</span>
           <span class="card-value text-gain" id="val-upper">$238.50</span>
-          <span class="card-sub">Conformal Quantile Margin</span>
+          <span class="card-sub">Algorithmic Target Margin</span>
         </div>
       </div>
     </section>
 
-    <!-- Harmonized Professional Terminal Grid -->
     <div class="dashboard-grid">
-      <!-- Left Column -->
       <div class="left-column">
         <section class="card charting-suite-card" id="tour-step-7">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -169,7 +162,6 @@
           </div>
         </section>
 
-        <!-- Proprietary Script Editor Card -->
         <section class="card hidden" id="script-editor-card" style="border: 1px solid var(--accent-blue); background: var(--bg-surface);">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -216,13 +208,11 @@
         </section>
       </div>
 
-      <!-- Right Column -->
       <div class="right-column">
         <section class="card" id="tour-step-6">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <h3>🤖 Hybrid AI Recommendation</h3>
-              <button onclick="openExplainModal()" class="btn-secondary" style="font-size: 10px; padding: 2px 6px; border-radius: 4px;">🧠 Explain</button>
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
               <label style="font-size: 11px; color: var(--text-muted);">Risk Profile:</label>
@@ -304,7 +294,7 @@
       <div class="modal-tabs">
         <button onclick="switchSocialTab('ideas', this)" class="port-tab-btn active" id="tab-btn-social-ideas">💡 Community Ideas</button>
         <button onclick="switchSocialTab('leaderboard', this)" class="port-tab-btn" id="tab-btn-social-leaders">🏆 Top Portfolios (Copy-Trading)</button>
-        <button onclick="switchSocialTab('publish', this)" class="port-tab-btn" id="tab-btn-social-publish">✍️️ Publish Setup</button>
+        <button onclick="switchSocialTab('publish', this)" class="port-tab-btn" id="tab-btn-social-publish">✍ Publish Setup</button>
       </div>
       <div class="modal-body">
         <div id="social-ideas-view">
@@ -411,6 +401,7 @@
         <button onclick="closeBacktestModal()" class="close-btn">&times;</button>
       </div>
       <div class="modal-body">
+        <p style="font-size: 12px; color: var(--text-muted);">Simulating historical performance of the AI Alpha Strategy against a Buy-and-Hold benchmark over the past 180 trading sessions.</p>
         <div class="prediction-cards-grid" style="margin-top: 8px;">
           <div class="pred-card">
             <span class="card-label">Strategy Final Value</span>
@@ -428,7 +419,6 @@
             <span class="card-sub">Sharpe Ratio: <strong id="bt-sharpe">--</strong></span>
           </div>
         </div>
-        <!-- Performance Analytics -->
         <div style="margin-top: 14px;">
           <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">PERFORMANCE ANALYTICS</div>
           <div class="prediction-cards-grid">
@@ -578,23 +568,27 @@
     </div>
   </div>
 
-  <!-- Explain Modal -->
+  <!-- Factor Attribution Modal -->
   <div id="explain-modal" class="modal hidden">
     <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
-        <h3>🧠 Model Explainability (SHAP)</h3>
+        <h3>🧠 Quantitative Factor Attribution</h3>
         <button onclick="closeExplainModal()" class="close-btn">&times;</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 12px; color: var(--text-muted);">
-          Feature-attribution breakdown for <strong id="explain-ticker-label">AAPL</strong>'s current XGBoost prediction — each bar shows how much that signal pushed the forecast up (green) or down (red) from the model's baseline expectation.
+          Factor breakdown for <strong id="explain-ticker-label">AAPL</strong>'s current AI forecast — displaying exactly how much each market signal shifted the projection from the algorithmic baseline.
         </p>
-        <div id="explain-loading" style="text-align:center; padding: 24px; color: var(--text-muted); font-size: 13px;">Computing SHAP values...</div>
+        <div id="explain-loading" style="text-align:center; padding: 24px; color: var(--text-muted); font-size: 13px;">Computing signal attributions...</div>
         <div id="explain-content" class="hidden">
           <div class="port-summary-box" style="margin-top: 10px;">
-            <div>Model Baseline: <strong id="explain-base">0.00%</strong></div>
-            <div>Final Prediction: <strong id="explain-final">0.00%</strong></div>
+            <div>Algorithmic Baseline: <strong id="explain-base">0.00%</strong></div>
+            <div>Adjusted Forecast: <strong id="explain-final">0.00%</strong></div>
           </div>
+          
+          <!-- Natural Language Insight Box -->
+          <div id="explain-summary-box" class="explain-summary-box hidden"></div>
+
           <div id="explain-bars-container" style="display:flex; flex-direction:column; gap:10px; margin-top:14px;"></div>
         </div>
       </div>

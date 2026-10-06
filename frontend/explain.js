@@ -43,6 +43,15 @@ function renderExplainability(data) {
   document.getElementById('explain-base').textContent = `${(data.base_value * 100).toFixed(3)}%`;
   document.getElementById('explain-final').textContent = `${(data.final_prediction * 100).toFixed(3)}%`;
 
+  // Render Natural Language Summary provided dynamically by the backend
+  const summaryBox = document.getElementById('explain-summary-box');
+  if (data.summary) {
+    summaryBox.innerHTML = data.summary;
+    summaryBox.classList.remove('hidden');
+  } else {
+    summaryBox.classList.add('hidden');
+  }
+
   const maxAbs = Math.max(...data.contributions.map(c => Math.abs(c.shap_value)), 0.0001);
 
   document.getElementById('explain-bars-container').innerHTML = data.contributions.map(c => {
