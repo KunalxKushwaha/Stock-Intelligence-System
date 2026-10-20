@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import requests
 import yfinance as yf
-from backend.db.mongodb import connect_to_mongo, close_mongo_connection
 
 
 root_dir = Path(__file__).resolve().parent.parent
@@ -437,92 +436,238 @@ def execute_broker_rebalance(req: RebalanceRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ==========================================
+# Options Chain & Greeks
+# Strategy: try live yfinance data first; if anything goes wrong
+# (rate limit, network, NaN values, empty chain) fall back to the
+# built-in volatility-smile model so the modal never fails to load.
+# ==========================================
+def _safe_float(value, default: float = 0.0) -> float:
+    """float() that never returns NaN/inf (NaN breaks JSON serialization)."""
+    try:
+        f = float(value)
+        return f if math.isfinite(f) else default
+    except (TypeError, ValueError):
+        return default
+
+def _safe_int(value, default: int = 0) -> int:
+    """int() that survives NaN/None (yfinance often returns NaN volume)."""
+    f = _safe_float(value, float(default))
+    return int(f)
+
+def _clean_iv(value, fallback: float = 0.2) -> float:
+    """yfinance returns ~0 IV when the market is closed; treat that as missing."""
+    iv = _safe_float(value, 0.0)
+    return iv if iv >= 0.01 else fallback
+
+def _fetch_live_options_chain(clean_ticker: str, days: int) -> dict:
+    """Real options chain via yfinance. Raises on any problem so the caller can fall back."""
+    stock = yf.Ticker(clean_ticker)
+    exps = stock.options
+    if not exps:
+        raise ValueError("No options found for ticker.")
+
+    target_date = datetime.today() + timedelta(days=days)
+    best_exp = exps[0]
+    min_diff = 9999
+    for d in exps:
+        dt = datetime.strptime(d, "%Y-%m-%d")
+        diff = abs((dt - target_date).days)
+        if diff < min_diff:
+            min_diff = diff
+            best_exp = d
+
+    opt = stock.option_chain(best_exp)
+    calls, puts = opt.calls, opt.puts
+    spot_price = _safe_float(stock.history(period="1d")['Close'].iloc[-1])
+    if spot_price <= 0:
+        raise ValueError("Could not determine underlying price.")
+
+    strikes = sorted(set(calls['strike']).intersection(set(puts['strike'])))
+    if not strikes:
+        raise ValueError("No overlapping call/put strikes.")
+    strikes = sorted(strikes, key=lambda x: abs(x - spot_price))[:15]  # 15 closest to ATM
+    strikes.sort()
+
+    chain_rows = []
+    iv_smile = []
+    T = max(min_diff, 1) / 365.0
+
+    for strike in strikes:
+        c_row = calls[calls['strike'] == strike].iloc[0]
+        p_row = puts[puts['strike'] == strike].iloc[0]
+
+        c_iv = _clean_iv(c_row.get('impliedVolatility'))
+        p_iv = _clean_iv(p_row.get('impliedVolatility'))
+
+        greeks = calculate_bs_greeks(spot_price, float(strike), T, 0.045, c_iv)
+
+        chain_rows.append({
+            "strike": float(strike),
+            "is_atm": abs(strike - spot_price) < (spot_price * 0.015),
+            "call": {
+                "bid": _safe_float(c_row.get('bid')),
+                "ask": _safe_float(c_row.get('ask')),
+                "last": _safe_float(c_row.get('lastPrice')),
+                "iv": round(c_iv * 100, 1),
+                "delta": greeks['call_delta'],
+                "theta": greeks['call_theta'],
+                "gamma": greeks['gamma'],
+                "vega": greeks['vega'],
+                "volume": _safe_int(c_row.get('volume')),
+                "open_interest": _safe_int(c_row.get('openInterest'))
+            },
+            "put": {
+                "bid": _safe_float(p_row.get('bid')),
+                "ask": _safe_float(p_row.get('ask')),
+                "last": _safe_float(p_row.get('lastPrice')),
+                "iv": round(p_iv * 100, 1),
+                "delta": greeks['put_delta'],
+                "theta": greeks['put_theta'],
+                "gamma": greeks['gamma'],
+                "vega": greeks['vega'],
+                "volume": _safe_int(p_row.get('volume')),
+                "open_interest": _safe_int(p_row.get('openInterest'))
+            }
+        })
+        iv_smile.append({"strike": float(strike), "iv": round(c_iv * 100, 1)})
+
+    atm_strike_live = strikes[len(strikes) // 2]
+    atm_iv_dec = _clean_iv(calls[calls['strike'] == atm_strike_live].iloc[0].get('impliedVolatility'))
+
+    expirations_fmt = [
+        {"days": abs((datetime.strptime(e, "%Y-%m-%d") - datetime.today()).days), "label": e}
+        for e in exps[:5]
+    ]
+
+    return {
+        "ticker": clean_ticker,
+        "underlying_price": round(spot_price, 2),
+        "selected_days": min_diff,
+        "atm_iv": round(atm_iv_dec * 100, 1),
+        "expected_move": round(spot_price * atm_iv_dec * math.sqrt(T), 2),
+        "put_call_ratio": 0.88,
+        "expirations": expirations_fmt,
+        "chain": chain_rows,
+        "iv_smile": iv_smile,
+        "data_source": "live_yfinance"
+    }
+
+def _simulated_options_chain(clean_ticker: str, days: int) -> dict:
+    """Self-contained Black-Scholes chain with a volatility smile (no network needed)."""
+    asset_info = ASSET_DIRECTORY.get(clean_ticker, {"name": clean_ticker, "class": "Equities", "base": 150.0})
+    spot = float(asset_info["base"])
+    
+    if spot < 50:
+        strike_step = 1.0
+    elif spot < 250:
+        strike_step = 2.5
+    elif spot < 1000:
+        strike_step = 5.0
+    else:
+        strike_step = 50.0
+
+    atm_strike = round(spot / strike_step) * strike_step
+    days_clamped = max(1, days)
+    T = days_clamped / 365.0
+    r = 0.045
+
+    term_atm_iv = round(0.24 + 0.07 / math.sqrt(days_clamped / 14.0 + 0.5), 4)
+    skew_strength = 0.12 / math.sqrt(T * 3.5)
+    curvature_strength = 0.38 / math.sqrt(T * 3.5)
+
+    expirations = [
+        {"days": 7, "label": "7 Days (Weekly)"},
+        {"days": 14, "label": "14 Days"},
+        {"days": 30, "label": "30 Days (Monthly)"},
+        {"days": 60, "label": "60 Days"},
+        {"days": 90, "label": "90 Days (Quarterly)"}
+    ]
+
+    chain_rows = []
+    iv_smile = []
+    
+    for idx in range(-7, 8):
+        strike = round(atm_strike + (idx * strike_step), 2)
+        moneyness = (strike - spot) / spot
+        
+        strike_iv = max(0.08, term_atm_iv + curvature_strength * (moneyness ** 2) - skew_strength * moneyness)
+        greeks = calculate_bs_greeks(spot, strike, T, r, strike_iv)
+
+        call_mid = greeks["call_price"]
+        put_mid = greeks["put_price"]
+        spread_factor = max(0.04, round(call_mid * 0.02, 2))
+
+        call_data = {
+            "bid": round(max(0.01, call_mid - spread_factor / 2), 2),
+            "ask": round(call_mid + spread_factor / 2, 2),
+            "last": call_mid,
+            "iv": round(strike_iv * 100, 1),
+            "delta": greeks["call_delta"],
+            "gamma": greeks["gamma"],
+            "theta": greeks["call_theta"],
+            "vega": greeks["vega"],
+            "volume": int(random.randint(150, 4200) * (1.4 if abs(idx) <= 2 else 0.5)),
+            "open_interest": int(random.randint(800, 18000) * (1.6 if abs(idx) <= 2 else 0.6))
+        }
+
+        put_data = {
+            "bid": round(max(0.01, put_mid - spread_factor / 2), 2),
+            "ask": round(put_mid + spread_factor / 2, 2),
+            "last": put_mid,
+            "iv": round(strike_iv * 100, 1),
+            "delta": greeks["put_delta"],
+            "gamma": greeks["gamma"],
+            "theta": greeks["put_theta"],
+            "vega": greeks["vega"],
+            "volume": int(random.randint(120, 3800) * (1.4 if abs(idx) <= 2 else 0.5)),
+            "open_interest": int(random.randint(700, 16000) * (1.6 if abs(idx) <= 2 else 0.6))
+        }
+
+        is_atm = abs(strike - spot) <= (strike_step / 2.0)
+        chain_rows.append({
+            "strike": strike,
+            "is_atm": is_atm,
+            "call": call_data,
+            "put": put_data
+        })
+
+        iv_smile.append({
+            "strike": strike,
+            "iv": round(strike_iv * 100, 1)
+        })
+
+    expected_move = round(spot * term_atm_iv * math.sqrt(T), 2)
+
+    return {
+        "ticker": clean_ticker,
+        "underlying_price": spot,
+        "selected_days": days,
+        "atm_iv": round(term_atm_iv * 100, 1),
+        "expected_move": expected_move,
+        "put_call_ratio": 0.88,
+        "expirations": expirations,
+        "chain": chain_rows,
+        "iv_smile": iv_smile,
+        "data_source": "simulated_model"
+    }
+
 @app.get("/api/options/chain")
 def get_options_chain(ticker: str = "AAPL", days: int = 30):
-    """Fetches real live options chains dynamically via yfinance."""
     clean_ticker = ticker.upper().strip()
     try:
-        stock = yf.Ticker(clean_ticker)
-        exps = stock.options
-        if not exps: raise ValueError("No options found for ticker.")
-
-        target_date = datetime.today() + timedelta(days=days)
-        best_exp = exps[0]
-        min_diff = 9999
-        for d in exps:
-            dt = datetime.strptime(d, "%Y-%m-%d")
-            diff = abs((dt - target_date).days)
-            if diff < min_diff:
-                min_diff = diff
-                best_exp = d
-                
-        opt = stock.option_chain(best_exp)
-        calls, puts = opt.calls, opt.puts
-        spot_price = stock.history(period="1d")['Close'].iloc[-1]
-        
-        strikes = sorted(list(set(calls['strike']).intersection(set(puts['strike']))))
-        strikes = sorted(strikes, key=lambda x: abs(x - spot_price))[:15] # Top 15 closest to ATM
-        strikes.sort()
-
-        chain_rows = []
-        iv_smile = []
-        T = max(min_diff, 1) / 365.0
-
-        for strike in strikes:
-            c_row = calls[calls['strike'] == strike].iloc[0]
-            p_row = puts[puts['strike'] == strike].iloc[0]
-            
-            c_iv = float(c_row.get('impliedVolatility', 0.2))
-            p_iv = float(p_row.get('impliedVolatility', 0.2))
-            
-            greeks = calculate_bs_greeks(spot_price, strike, T, 0.045, c_iv)
-            
-            chain_rows.append({
-                "strike": float(strike),
-                "is_atm": abs(strike - spot_price) < (spot_price * 0.015),
-                "call": {
-                    "bid": float(c_row.get('bid', 0.0)),
-                    "ask": float(c_row.get('ask', 0.0)),
-                    "last": float(c_row.get('lastPrice', 0.0)),
-                    "iv": round(c_iv * 100, 1),
-                    "delta": greeks['call_delta'],
-                    "theta": greeks['call_theta'],
-                    "gamma": greeks['gamma'],
-                    "vega": greeks['vega'],
-                    "volume": int(c_row.get('volume') or 0),
-                    "open_interest": int(c_row.get('openInterest') or 0)
-                },
-                "put": {
-                    "bid": float(p_row.get('bid', 0.0)),
-                    "ask": float(p_row.get('ask', 0.0)),
-                    "last": float(p_row.get('lastPrice', 0.0)),
-                    "iv": round(p_iv * 100, 1),
-                    "delta": greeks['put_delta'],
-                    "theta": greeks['put_theta'],
-                    "gamma": greeks['gamma'],
-                    "vega": greeks['vega'],
-                    "volume": int(p_row.get('volume') or 0),
-                    "open_interest": int(p_row.get('openInterest') or 0)
-                }
-            })
-            iv_smile.append({"strike": float(strike), "iv": round(c_iv * 100, 1)})
-
-        expirations_fmt = [{"days": abs((datetime.strptime(e, "%Y-%m-%d") - datetime.today()).days), "label": e} for e in exps[:5]]
-        
-        return {
-            "ticker": clean_ticker,
-            "underlying_price": round(spot_price, 2),
-            "selected_days": min_diff,
-            "atm_iv": round(calls[calls['strike'] == strikes[len(strikes)//2]].iloc[0]['impliedVolatility'] * 100, 1),
-            "expected_move": round(spot_price * c_iv * math.sqrt(T), 2),
-            "put_call_ratio": 0.88,
-            "expirations": expirations_fmt,
-            "chain": chain_rows,
-            "iv_smile": iv_smile
-        }
+        return _fetch_live_options_chain(clean_ticker, days)
     except Exception as e:
-        print(f"⚠️ yfinance Options error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch real options chain.")
+        print(f"⚠️ yfinance options unavailable for {clean_ticker}, using simulated chain: {e}")
+
+    try:
+        return _simulated_options_chain(clean_ticker, days)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to build options chain: {e}")
+
 
 @app.websocket("/ws/orderbook/{ticker}")
 async def websocket_orderbook(websocket: WebSocket, ticker: str):
@@ -975,105 +1120,6 @@ def explain_stock(ticker: str = "AAPL"):
     }
 
 
-@app.get("/api/options/chain")
-def get_options_chain(ticker: str = "AAPL", days: int = 30):
-    clean_ticker = ticker.upper().strip()
-    asset_info = ASSET_DIRECTORY.get(clean_ticker, {"name": clean_ticker, "class": "Equities", "base": 150.0})
-    spot = float(asset_info["base"])
-    
-    if spot < 50:
-        strike_step = 1.0
-    elif spot < 250:
-        strike_step = 2.5
-    elif spot < 1000:
-        strike_step = 5.0
-    else:
-        strike_step = 50.0
-
-    atm_strike = round(spot / strike_step) * strike_step
-    days_clamped = max(1, days)
-    T = days_clamped / 365.0
-    r = 0.045
-
-    term_atm_iv = round(0.24 + 0.07 / math.sqrt(days_clamped / 14.0 + 0.5), 4)
-    skew_strength = 0.12 / math.sqrt(T * 3.5)
-    curvature_strength = 0.38 / math.sqrt(T * 3.5)
-
-    expirations = [
-        {"days": 7, "label": "7 Days (Weekly)"},
-        {"days": 14, "label": "14 Days"},
-        {"days": 30, "label": "30 Days (Monthly)"},
-        {"days": 60, "label": "60 Days"},
-        {"days": 90, "label": "90 Days (Quarterly)"}
-    ]
-
-    chain_rows = []
-    iv_smile = []
-    
-    for idx in range(-7, 8):
-        strike = round(atm_strike + (idx * strike_step), 2)
-        moneyness = (strike - spot) / spot
-        
-        strike_iv = max(0.08, term_atm_iv + curvature_strength * (moneyness ** 2) - skew_strength * moneyness)
-        greeks = calculate_bs_greeks(spot, strike, T, r, strike_iv)
-
-        call_mid = greeks["call_price"]
-        put_mid = greeks["put_price"]
-        spread_factor = max(0.04, round(call_mid * 0.02, 2))
-
-        call_data = {
-            "bid": round(max(0.01, call_mid - spread_factor / 2), 2),
-            "ask": round(call_mid + spread_factor / 2, 2),
-            "last": call_mid,
-            "iv": round(strike_iv * 100, 1),
-            "delta": greeks["call_delta"],
-            "gamma": greeks["gamma"],
-            "theta": greeks["call_theta"],
-            "vega": greeks["vega"],
-            "volume": int(random.randint(150, 4200) * (1.4 if abs(idx) <= 2 else 0.5)),
-            "open_interest": int(random.randint(800, 18000) * (1.6 if abs(idx) <= 2 else 0.6))
-        }
-
-        put_data = {
-            "bid": round(max(0.01, put_mid - spread_factor / 2), 2),
-            "ask": round(put_mid + spread_factor / 2, 2),
-            "last": put_mid,
-            "iv": round(strike_iv * 100, 1),
-            "delta": greeks["put_delta"],
-            "gamma": greeks["gamma"],
-            "theta": greeks["put_theta"],
-            "vega": greeks["vega"],
-            "volume": int(random.randint(120, 3800) * (1.4 if abs(idx) <= 2 else 0.5)),
-            "open_interest": int(random.randint(700, 16000) * (1.6 if abs(idx) <= 2 else 0.6))
-        }
-
-        is_atm = abs(strike - spot) <= (strike_step / 2.0)
-        chain_rows.append({
-            "strike": strike,
-            "is_atm": is_atm,
-            "call": call_data,
-            "put": put_data
-        })
-
-        iv_smile.append({
-            "strike": strike,
-            "iv": round(strike_iv * 100, 1)
-        })
-
-    expected_move = round(spot * term_atm_iv * math.sqrt(T), 2)
-
-    return {
-        "ticker": clean_ticker,
-        "underlying_price": spot,
-        "selected_days": days,
-        "atm_iv": round(term_atm_iv * 100, 1),
-        "expected_move": expected_move,
-        "put_call_ratio": 0.88,
-        "expirations": expirations,
-        "chain": chain_rows,
-        "iv_smile": iv_smile
-    }
-
 @app.get("/api/stock/backtest")
 def run_backtest(ticker: str = "AAPL", initial_capital: float = 10000.0):
     try:
@@ -1147,57 +1193,6 @@ def run_backtest(ticker: str = "AAPL", initial_capital: float = 10000.0):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/broker/account")
-def get_broker_account():
-    total_market_val = sum(p["marketValue"] for p in BROKER_STATE["positions"])
-    BROKER_STATE["portfolio_value"] = round(BROKER_STATE["cash"] + total_market_val, 2)
-    BROKER_STATE["buying_power"] = round(BROKER_STATE["cash"] * 2.0, 2)
-    return BROKER_STATE
-
-@app.post("/api/broker/order")
-def execute_broker_order(order: OrderRequest):
-    ticker = order.ticker.upper().strip()
-    qty = float(order.qty)
-    asset_info = ASSET_DIRECTORY.get(ticker, {"base": 150.0})
-    cur_p = float(asset_info["base"])
-    exec_price = float(order.limit_price) if order.limit_price else cur_p
-    total_cost = round(qty * exec_price, 2)
-
-    if order.side.lower() == "buy":
-        BROKER_STATE["cash"] = max(0.0, BROKER_STATE["cash"] - total_cost)
-        existing = next((p for p in BROKER_STATE["positions"] if p["ticker"] == ticker), None)
-        if existing:
-            tot_shares = existing["shares"] + qty
-            existing["buyPrice"] = round(((existing["shares"] * existing["buyPrice"]) + (qty * exec_price)) / tot_shares, 2)
-            existing["shares"] = round(tot_shares, 4)
-            existing["currentPrice"] = cur_p
-            existing["marketValue"] = round(tot_shares * cur_p, 2)
-            existing["unrealizedPL"] = round(existing["marketValue"] - (tot_shares * existing["buyPrice"]), 2)
-            existing["unrealizedPLPct"] = round((existing["unrealizedPL"] / (tot_shares * existing["buyPrice"])) * 100, 2)
-        else:
-            BROKER_STATE["positions"].append({
-                "ticker": ticker,
-                "shares": qty,
-                "buyPrice": exec_price,
-                "currentPrice": cur_p,
-                "marketValue": total_cost,
-                "unrealizedPL": 0.0,
-                "unrealizedPLPct": 0.0
-            })
-
-    return {
-        "status": "success",
-        "message": "Order successfully routed and settled into portfolio.",
-        "order_details": {
-            "order_id": f"ORD-{random.randint(100000, 999999)}",
-            "ticker": ticker,
-            "side": order.side.upper(),
-            "qty": qty,
-            "execution_status": "FILLED"
-        },
-        "broker_state": BROKER_STATE
-    }
-
 @app.get("/api/stock/news")
 def get_stock_news(ticker: str = "AAPL"):
     clean_ticker = ticker.upper().strip()
@@ -1222,42 +1217,6 @@ def get_stock_news(ticker: str = "AAPL"):
 def get_fact_checks(ticker: str = "AAPL"):
     clean_ticker = ticker.upper().strip()
     return {"ticker": clean_ticker, "claims": [{"claim": "Model validation confirms robust statistical bounds.", "publisher": "Audit Desk", "rating": "Verified"}]}
-
-@app.websocket("/ws/orderbook/{ticker}")
-async def websocket_orderbook(websocket: WebSocket, ticker: str):
-    await websocket.accept()
-    clean_ticker = ticker.upper().strip()
-    asset_info = ASSET_DIRECTORY.get(clean_ticker, {"base": 305.59})
-    current_asset_price = asset_info["base"]
-    try:
-        while True:
-            micro_delta = np.random.normal(0, current_asset_price * 0.0008)
-            current_asset_price = round(max(1.0, current_asset_price + micro_delta), 2)
-            spread = round(max(0.02, current_asset_price * random.uniform(0.0005, 0.0018)), 2)
-            
-            bid = round(current_asset_price - spread / 2, 2)
-            ask = round(current_asset_price + spread / 2, 2)
-
-            bids = [
-                {"price": bid, "size": random.randint(2000, 15000)},
-                {"price": round(bid - 0.08, 2), "size": random.randint(5000, 30000)},
-                {"price": round(bid - 0.16, 2), "size": random.randint(12000, 60000)}
-            ]
-            asks = [
-                {"price": ask, "size": random.randint(2000, 15000)},
-                {"price": round(ask + 0.08, 2), "size": random.randint(5000, 30000)},
-                {"price": round(ask + 0.16, 2), "size": random.randint(12000, 60000)}
-            ]
-
-            payload = {
-                "ticker": clean_ticker,
-                "level1": {"bid": bid, "ask": ask, "spread": spread},
-                "level2": {"bids": bids, "asks": asks}
-            }
-            await websocket.send_json(payload)
-            await asyncio.sleep(0.4)
-    except WebSocketDisconnect:
-        pass
 
 @app.websocket("/ws/broker/updates")
 async def websocket_broker_updates(websocket: WebSocket):
