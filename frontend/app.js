@@ -37,12 +37,13 @@ let socialSocket = null;
 let cachedOptionsData = null;
 let selectedOptionsDays = 30;
 
-// Social & Engagement State
 let activeSocialFilter = 'ALL';
 let cachedSocialIdeas = [];
-let socialFeedTicker = ''; // Tracks which ticker is currently loaded
+let socialFeedTicker = '';
 let clientUserId = localStorage.getItem('alp_client_user_id') || ('user_' + Math.random().toString(36).substring(2, 9));
 localStorage.setItem('alp_client_user_id', clientUserId);
+
+let currentOptAllocations = []; 
 
 const ASSET_DIRECTORY = {
   "Equities": {
@@ -208,7 +209,6 @@ function openSocialModal() {
   const activeBtn = document.getElementById('btn-social-filter-active');
   if (activeBtn) activeBtn.textContent = `${activeTicker} Only`;
 
-  // Smart Cache: Only fetch if the active stock changed or cache is completely empty
   if (socialFeedTicker !== activeTicker || cachedSocialIdeas.length === 0) {
     fetchAndRenderSocialFeed(false);
     fetchAndRenderSocialSentiment();
@@ -231,7 +231,6 @@ function switchSocialTab(tabName, btnElem) {
   document.getElementById('social-publish-view').classList.toggle('hidden', tabName !== 'publish');
   
   if (tabName === 'ideas') {
-    // Retain loaded posts without blanking out the feed
     if (socialFeedTicker === activeTicker && cachedSocialIdeas.length > 0) {
       renderSocialIdeas();
     } else {
@@ -255,7 +254,6 @@ function refreshSocialFeedManual() {
 
 async function fetchAndRenderSocialFeed(forceRefresh = false) {
   const container = document.getElementById('social-ideas-container');
-  // Only show loading placeholder if this is a fresh fetch or force refresh
   if (forceRefresh || cachedSocialIdeas.length === 0 || socialFeedTicker !== activeTicker) {
     container.innerHTML = `<p style="font-size:12px; color:var(--text-muted); padding:20px; text-align:center;">Querying live Reddit discussions & Bluesky stream for $${activeTicker}...</p>`;
   }
@@ -344,7 +342,7 @@ function renderSocialIdeas() {
             ` : ''}
           </div>
           ${item.entry_price ? `
-            <button class="btn-primary" style="padding:5px 12px; font-size:11px;" onclick="stageSocialSetupToBroker('${item.ticker}', '${item.side}',${item.entry_price}, ${item.stop_loss},${item.target_price})">
+            <button class="btn-primary" style="padding:5px 12px; font-size:11px;" onclick="stageSocialSetupToBroker('${item.ticker}', '${item.side}', ${item.entry_price}, ${item.stop_loss}, ${item.target_price})">
               ⚡ Stage Setup in Broker
             </button>
           ` : `
@@ -385,7 +383,6 @@ async function fetchAndRenderSocialSentiment() {
     const res = await fetch(`http://localhost:8000/api/social/sentiment?ticker=${activeTicker}`);
     const data = await res.json();
 
-    // Honest Tradestie Reddit Telemetry
     const tr = data.tradestie_reddit || {};
     const rankEl = document.getElementById('sent-reddit-rank');
     const mentionsEl = document.getElementById('sent-reddit-mentions');
@@ -403,7 +400,6 @@ async function fetchAndRenderSocialSentiment() {
       orientEl.className = "text-muted";
     }
 
-    // Honest Finnhub Sentiment Telemetry
     const fh = data.finnhub_sentiment || {};
     const fhRedditEl = document.getElementById('sent-finnhub-reddit');
     const fhTwitterEl = document.getElementById('sent-finnhub-twitter');
@@ -469,7 +465,7 @@ async function fetchAndRenderLeaderboard() {
           </div>
           <p style="font-size:11px; color:var(--text-muted); margin-top:4px;">Style: <strong>${f.style}</strong></p>
           <div class="trader-holdings-chips">
-            ${(f.holdings || []).map(h => `<span class="holding-chip">${h.ticker}:${h.allocation_pct}%</span>`).join('')}
+            ${(f.holdings || []).map(h => `<span class="holding-chip">${h.ticker}: ${h.allocation_pct}%</span>`).join('')}
           </div>
         </div>
 
@@ -484,7 +480,7 @@ async function fetchAndRenderLeaderboard() {
 }
 
 async function copyTraderAllocation(traderId, traderName) {
-  const capital = prompt(`Enter capital ($) to allocate and replicate ${traderName}'s SEC 13F holdings:`, "5000");
+  const capital = prompt(`Enter capital ($) to allocate and replicate ${traderName}'s SEC 13F holdings via Alpaca:`, "5000");
   if (!capital || isNaN(capital) || Number(capital) <= 0) return;
 
   try {
@@ -493,12 +489,18 @@ async function copyTraderAllocation(traderId, traderName) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trader_id: traderId, capital: Number(capital) })
     });
+    
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || "API validation failed");
+    }
+    
     const data = await res.json();
     if (data.status === 'success') {
       const orders = data.allocation.orders || [];
       const orderSummary = orders.map(o => `• ${o.ticker} (${o.allocation_pct}%): $${o.allocated_dollars.toLocaleString()}`).join('\n');
       
-      alert(`✅ Portfolio Synchronized!\n\nSuccessfully copied ${traderName} with $${Number(capital).toLocaleString()}:\n${orderSummary}\n\nAll positions are now live in your Broker ledger!`);
+      alert(`✅ Live Portfolio Synchronized via Alpaca API!\n\nSuccessfully copied ${traderName} with $${Number(capital).toLocaleString()}:\n${orderSummary}\n\nAll positions are now live in your broker ledger!`);
       
       closeSocialModal();
       openPortfolioModal();
@@ -506,7 +508,7 @@ async function copyTraderAllocation(traderId, traderName) {
     }
   } catch (err) {
     console.error("Copy trader error:", err);
-    alert("Failed to execute copy portfolio allocation.");
+    alert(`❌ Failed to route orders to Alpaca Broker.\nEnsure you have configured ALPACA_API_KEY in your .env file.\nDetail: ${err.message}`);
   }
 }
 
@@ -1048,6 +1050,12 @@ async function submitBrokerOrder() {
         take_profit: takeProfit
       })
     });
+    
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || "API routing failed");
+    }
+    
     const data = await res.json();
     const details = data.order_details;
 
@@ -1063,7 +1071,7 @@ async function submitBrokerOrder() {
     respBox.classList.remove('hidden');
   } catch (err) {
     console.error("Order routing error:", err);
-    alert("Failed to route order through broker gateway.");
+    alert(`❌ Failed to route order to Alpaca.\nEnsure ALPACA_API_KEY is active in .env.\nDetail: ${err.message}`);
   }
 }
 
@@ -1175,61 +1183,8 @@ function renderMergedNewsSection() {
 }
 
 // ==========================================
-// Pine Script Editor Toggle & Active State
+// Portfolio & Watchlist Controllers
 // ==========================================
-function toggleScriptEditor() {
-  const card = document.getElementById('script-editor-card');
-  const btn = document.getElementById('ind-script-btn');
-  if (card) {
-    card.classList.toggle('hidden');
-    const isOpen = !card.classList.contains('hidden');
-    if (btn) btn.classList.toggle('script-active', isOpen);
-    if (isOpen) {
-      const textarea = document.getElementById('script-textarea');
-      if (textarea && !textarea.value.trim()) textarea.value = "// Custom Pine Script Study\nClose * 1.012";
-    }
-  }
-}
-
-function loadScriptPreset() {
-  const select = document.getElementById('script-preset-select');
-  const textarea = document.getElementById('script-textarea');
-  if (!select || !textarea) return;
-  if (select.value === 'sma_crossover') textarea.value = "Close * 1.008";
-  else if (select.value === 'momentum_band') textarea.value = "Close * 1.025";
-  else textarea.value = "Close * 1.01";
-}
-
-function clearCustomScript() {
-  document.getElementById('script-textarea').value = "";
-  if (tvCustomScriptSeries) tvCustomScriptSeries.applyOptions({ visible: false });
-}
-
-function executeCustomScript() {
-  const scriptCode = document.getElementById('script-textarea').value.trim();
-  const statusMsg = document.getElementById('script-status-msg');
-  if (!scriptCode) return;
-
-  try {
-    const customData = [];
-    rawHistoricalData.forEach((d) => {
-      const Close = d.Close || 100;
-      let evaluatedValue = eval(scriptCode);
-      if (!isNaN(evaluatedValue)) customData.push({ time: (d.Date || '').split('T')[0], value: evaluatedValue });
-    });
-    if (tvCustomScriptSeries && customData.length > 0) {
-      tvCustomScriptSeries.setData(customData);
-      tvCustomScriptSeries.applyOptions({ visible: true });
-      statusMsg.textContent = `✅ Compiled successfully across ${customData.length} points.`;
-      statusMsg.style.color = "var(--accent-green)";
-    }
-  } catch (err) {
-    statusMsg.textContent = `❌ Error: ${err.message}`;
-    statusMsg.style.color = "var(--accent-red)";
-  }
-}
-
-// Portfolio & Watchlist modals
 function openPortfolioModal() { 
   document.body.classList.add('modal-open');
   renderWatchlistTab(); 
@@ -1242,6 +1197,8 @@ function switchPortfolioTab(tabName, btnElem) {
   btnElem.classList.add('active');
   document.getElementById('tab-watchlist').classList.toggle('hidden', tabName !== 'watchlist');
   document.getElementById('tab-positions').classList.toggle('hidden', tabName !== 'positions');
+  document.getElementById('tab-optimizer').classList.toggle('hidden', tabName !== 'optimizer');
+  
   if (tabName === 'positions') renderLivePositionsTab();
 }
 function getStoredWatchlist() {
@@ -1267,14 +1224,21 @@ function renderWatchlistTab() {
 async function renderLivePositionsTab() {
   const container = document.getElementById('positions-items-container');
   if (!container) return;
-  container.innerHTML = '<p style="font-size:12px; color:var(--text-muted); padding:10px;">Synchronizing broker ledger...</p>';
+  container.innerHTML = '<p style="font-size:12px; color:var(--text-muted); padding:10px;">Synchronizing broker ledger via Alpaca...</p>';
 
   try {
     const res = await fetch('http://localhost:8000/api/broker/account');
     const data = await res.json();
 
-    document.getElementById('port-total-val').textContent = `$${data.portfolio_value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-    document.getElementById('port-cash-val').textContent = `$${data.cash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    if (data.error) {
+      container.innerHTML = `<div style="padding:15px; color:var(--accent-yellow); background:rgba(217, 119, 6, 0.1); border-radius:6px; border:1px solid var(--accent-yellow); font-size:12.5px;">⚠️ <strong>Broker Gateway Unconfigured:</strong><br>${data.error}</div>`;
+      document.getElementById('port-total-val').textContent = "$0.00";
+      document.getElementById('port-cash-val').textContent = "$0.00";
+      return;
+    }
+
+    document.getElementById('port-total-val').textContent = `$${parseFloat(data.portfolio_value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('port-cash-val').textContent = `$${parseFloat(data.cash).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
     const positions = data.positions || [];
     if (positions.length === 0) {
@@ -1289,12 +1253,12 @@ async function renderLivePositionsTab() {
         <div class="port-item-row" style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <strong>${pos.ticker}</strong> 
-            <span style="font-size:11px; color:var(--text-muted);">(${pos.shares} Units @ $${Number(pos.buyPrice).toFixed(2)})</span>
-            <div style="font-size:11px; color:var(--text-muted);">Market Value: $${Number(pos.marketValue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <span style="font-size:11px; color:var(--text-muted);">(${parseFloat(pos.shares).toFixed(4)} Units @ $${parseFloat(pos.buyPrice).toFixed(2)})</span>
+            <div style="font-size:11px; color:var(--text-muted);">Market Value: $${parseFloat(pos.marketValue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
           </div>
           <div style="text-align:right;">
-            <strong class="${plClass}">${plSign}$${Number(pos.unrealizedPL).toFixed(2)}</strong>
-            <div style="font-size:11px;" class="${plClass}">${plSign}${Number(pos.unrealizedPLPct).toFixed(2)}%</div>
+            <strong class="${plClass}">${plSign}$${parseFloat(pos.unrealizedPL).toFixed(2)}</strong>
+            <div style="font-size:11px;" class="${plClass}">${plSign}${parseFloat(pos.unrealizedPLPct).toFixed(2)}%</div>
           </div>
         </div>
       `;
@@ -1302,6 +1266,87 @@ async function renderLivePositionsTab() {
   } catch (err) {
     console.error("Error syncing positions:", err);
     container.innerHTML = '<p style="color:var(--accent-red); padding:10px;">Failed to synchronize live positions.</p>';
+  }
+}
+
+// ==========================================
+// Portfolio Optimization Engine
+// ==========================================
+async function runPortfolioOptimization() {
+  const cap = document.getElementById('opt-capital-input').value || 100000;
+  const profile = document.getElementById('opt-risk-select').value || 'balanced';
+  
+  document.getElementById('optimizer-loading').classList.remove('hidden');
+  document.getElementById('optimizer-results-container').classList.add('hidden');
+  document.getElementById('opt-rebalance-msg').classList.add('hidden');
+
+  try {
+    const res = await fetch(`http://localhost:8000/api/portfolio/optimize?capital=${cap}&risk_profile=${profile}`);
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      currentOptAllocations = data.allocations;
+      const m = data.metrics;
+      
+      document.getElementById('opt-res-ret').textContent = `${m.optimized_expected_return}%`;
+      document.getElementById('opt-res-vol').textContent = `${m.optimized_volatility}%`;
+      document.getElementById('opt-res-sharpe').textContent = m.optimized_sharpe;
+      
+      const listContainer = document.getElementById('opt-allocations-list');
+      listContainer.innerHTML = currentOptAllocations.map(a => `
+        <div class="opt-alloc-row">
+          <div class="alloc-ticker">${a.ticker}</div>
+          <div class="alloc-bar-wrapper">
+            <div class="alloc-bar-fill" style="width: ${a.optimized_weight_pct}%;"></div>
+          </div>
+          <div class="alloc-pct">${a.optimized_weight_pct}%</div>
+        </div>
+      `).join('');
+      
+      document.getElementById('optimizer-loading').classList.add('hidden');
+      document.getElementById('optimizer-results-container').classList.remove('hidden');
+    }
+  } catch (err) {
+    console.error("Optimization error:", err);
+    document.getElementById('optimizer-loading').textContent = "Failed to run optimization engine.";
+  }
+}
+
+async function executePortfolioRebalance() {
+  if (currentOptAllocations.length === 0) return;
+  const msgBox = document.getElementById('opt-rebalance-msg');
+  msgBox.textContent = "Liquidating current positions and executing optimal weights via Alpaca API...";
+  msgBox.classList.remove('hidden');
+
+  try {
+    const payload = currentOptAllocations.map(a => ({
+      ticker: a.ticker,
+      optimized_weight_pct: a.optimized_weight_pct
+    }));
+
+    const res = await fetch('http://localhost:8000/api/broker/rebalance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assets: payload })
+    });
+    
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || "API validation failed");
+    }
+    
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      msgBox.textContent = "✅ " + data.message;
+      setTimeout(() => {
+        switchPortfolioTab('positions', document.querySelectorAll('.port-tab-btn')[1]);
+      }, 1500);
+    }
+  } catch (err) {
+    console.error("Broker rebalance error:", err);
+    msgBox.textContent = `❌ Failed to route rebalance orders to Alpaca. Make sure ALPACA_API_KEY is active in your .env file.`;
+    msgBox.style.color = "var(--accent-red)";
   }
 }
 

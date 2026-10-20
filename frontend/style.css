@@ -1276,8 +1276,7 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
 @media (max-width: 700px) {
   .social-sentiment-banner { grid-template-columns: 1fr; }
 }
-<!-- ========== CSS below: append to style.css, don't put this part in index.html ========== -->
- 
+
 /* ============================================================
    SHAP Explainability Upgrade
    ============================================================ */
@@ -1359,4 +1358,409 @@ h1, h2, h3, h4, .brand-title-line h1, .modal-header h3, #chart-title,
 .shap-bar-track { background: var(--bg-surface-alt); border-radius: 6px; height: 8px; overflow: hidden; }
 .shap-bar-fill { height: 100%; border-radius: 6px; }
 .shap-quant-line { font-size: 11px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; margin-top: 5px; }
- 
+
+/* ============================================================
+   MERGED FROM INCOMING BRANCH
+   Only selectors/rules that were missing from the current file.
+   Everything above is your original, untouched.
+   ============================================================ */
+
+/* Navbar helpers */
+.brand-icon { font-size: 22px; }
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Charting suite: chart sizing and sub-pane */
+.charting-suite-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-container-wrapper {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  margin-top: 12px;
+}
+
+#tradingview-chart-container {
+  width: 100%;
+  height: 100%;
+}
+
+.sub-chart-pane-wrapper {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+}
+
+#tradingview-subchart-container {
+  width: 100%;
+  height: 100px;
+}
+
+/* Options chain: extra controls and table cells */
+.opt-control-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.opt-control-group input {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+
+.opt-stat-item span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.options-table-wrapper {
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.options-table {
+  text-align: center;
+}
+
+.options-table th, .options-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.call-header-group {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--accent-green);
+}
+
+.put-header-group {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--accent-red);
+}
+
+.strike-cell-header {
+  color: var(--text-main) !important;
+  font-weight: 700;
+}
+
+.atm-strike-row {
+  border-left: 3px solid var(--accent-blue);
+}
+
+/* Portfolio Optimizer */
+.optimizer-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  background: var(--bg-surface-alt);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+#opt-allocations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.opt-alloc-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 50px;
+  gap: 12px;
+  align-items: center;
+  background: var(--bg-surface);
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.alloc-ticker {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.alloc-bar-wrapper {
+  height: 14px;
+  background: var(--bg-surface-alt);
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.alloc-bar-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 7px;
+  transition: width 0.5s ease;
+}
+
+.alloc-pct {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Social Trading: idea cards, leaderboard, publish form */
+.social-idea-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s;
+}
+
+.social-idea-card:hover {
+  border-color: var(--accent-blue);
+}
+
+.idea-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.idea-author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.idea-author-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.idea-badge {
+  font-size: 10px;
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.idea-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: var(--bg-surface);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+}
+
+.idea-metrics-bar div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.idea-metrics-bar span {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.idea-thesis {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-main);
+}
+
+.idea-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.idea-like-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.idea-like-btn:hover {
+  border-color: var(--accent-red);
+}
+
+.idea-like-btn.liked {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  font-weight: 700;
+}
+
+.trader-lead-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.trader-stats-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  text-align: center;
+}
+
+.trader-holdings-chips {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.holding-chip {
+  font-size: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.publish-idea-form textarea {
+  width: 100%;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+}
+
+/* AlphaBot: draggable header, message wrapper, edit button, follow-ups */
+.chatbot-launcher { user-select: none; }
+
+.chatbot-header {
+  cursor: grab;
+  user-select: none;
+}
+
+.chatbot-header:active {
+  cursor: grabbing;
+}
+
+.chat-msg {
+  flex-direction: column;
+  position: relative;
+}
+
+.msg-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-msg.user-msg .msg-wrapper {
+  flex-direction: row-reverse;
+}
+
+.chat-msg .msg-content {
+  white-space: pre-wrap;
+}
+
+.msg-edit-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0.6;
+  padding: 2px;
+  transition: opacity 0.2s;
+}
+
+.msg-edit-btn:hover {
+  opacity: 1;
+  color: var(--accent-blue);
+}
+
+.msg-follow-ups {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.follow-up-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.follow-up-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.follow-up-chips button {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--accent-blue);
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.3;
+  transition: all 0.15s;
+}
+
+.follow-up-chips button:hover {
+  background: var(--accent-blue-soft);
+  border-color: var(--accent-blue);
+}

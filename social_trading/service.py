@@ -8,78 +8,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# In-memory storage for user-published trade setups
 USER_PUBLISHED_IDEAS = []
+REDDIT_FEED_CACHE = {}     
+BLUESKY_FEED_CACHE = {}    
+SESSION_POSTS_STORE = {}   
 
-# Persistent session registries and TTL caches to prevent Reddit/Bluesky 429 rate-limiting
-REDDIT_FEED_CACHE = {}     # { ticker: { "timestamp": float, "posts": list } }
-BLUESKY_FEED_CACHE = {}    # { ticker: { "timestamp": float, "posts": list } }
-SESSION_POSTS_STORE = {}   # { ticker: list } (Guaranteed fallback so posts never vanish on tab switch)
-
-CACHE_TTL_SECONDS = 300    # 5 minutes cache per ticker
-
-# Real SEC Form 13F Institutional Portfolios (Verified Regulatory Disclosures)
-LEADERBOARD_TRADERS = [
-    {
-        "id": "fund-berkshire",
-        "name": "Berkshire Hathaway",
-        "manager": "Warren Buffett",
-        "source": "SEC Form 13F Filing",
-        "style": "Value & Durable Moat Investing",
-        "holdings": [
-            {"ticker": "AAPL", "allocation_pct": 45},
-            {"ticker": "JPM", "allocation_pct": 30},
-            {"ticker": "SPY", "allocation_pct": 25}
-        ]
-    },
-    {
-        "id": "fund-bridgewater",
-        "name": "Bridgewater Associates",
-        "manager": "Ray Dalio (Founded)",
-        "source": "SEC Form 13F Filing",
-        "style": "All-Weather Macro & Risk Parity",
-        "holdings": [
-            {"ticker": "SPY", "allocation_pct": 45},
-            {"ticker": "GC=F", "allocation_pct": 30},
-            {"ticker": "GOOGL", "allocation_pct": 25}
-        ]
-    },
-    {
-        "id": "fund-appaloosa",
-        "name": "Appaloosa Management",
-        "manager": "David Tepper",
-        "source": "SEC Form 13F Filing",
-        "style": "Concentrated Tech & Cyclical Alpha",
-        "holdings": [
-            {"ticker": "NVDA", "allocation_pct": 40},
-            {"ticker": "AMZN", "allocation_pct": 35},
-            {"ticker": "MSFT", "allocation_pct": 25}
-        ]
-    }
-]
-
-# Track likes per user session: { idea_id: set([user_id, ...]) }
+CACHE_TTL_SECONDS = 300    
 IDEA_LIKES_MAP = {}
 
 REDDIT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23ff4500'/%3E%3Cpath fill='%23ffffff' d='M12 4.5a1.5 1.5 0 0 1 1.5 1.5c0 .35-.12.67-.32.93l1.83 1.83c.75-.48 1.68-.76 2.69-.76 2.48 0 4.5 2.02 4.5 4.5 0 .73-.18 1.42-.49 2.03.8.7 1.29 1.72 1.29 2.84 0 2.12-1.72 3.84-3.84 3.84-1.12 0-2.14-.49-2.84-1.29-.61.31-1.3.49-2.03.49-2.48 0-4.5-2.02-4.5-4.5 0-1.01.28-1.94.76-2.69L8.69 7.41A1.49 1.49 0 0 1 7.5 6a1.5 1.5 0 1 1 3 0c0 .35-.12.67-.32.93l1.82 1.82V4.5z'/%3E%3C/svg%3E"
 
 def fetch_reddit_discussions_rss(ticker: str, force_refresh: bool = False) -> list:
-    """
-    Fetches real active discussions directly from r/wallstreetbets and r/stocks via RSS.
-    Utilizes an in-memory TTL cache and session store so discussions never disappear on tab re-open.
-    """
     clean_ticker = ticker.upper().strip()
     now = time.time()
-
-    # Return cached discussions if available and fresh
     if not force_refresh and clean_ticker in REDDIT_FEED_CACHE:
         cache_entry = REDDIT_FEED_CACHE[clean_ticker]
         if (now - cache_entry["timestamp"]) < CACHE_TTL_SECONDS and len(cache_entry["posts"]) > 0:
             return cache_entry["posts"]
 
-    headers = {
-        "User-Agent": f"web:AlphaTerminal:v2.9.3 (by /u/trader_{clean_ticker.lower()})"
-    }
+    headers = {"User-Agent": f"web:AlphaTerminal:v2.9.3 (by /u/trader_{clean_ticker.lower()})"}
     subreddits = ["wallstreetbets", "stocks"]
     reddit_posts = []
 
@@ -90,16 +37,13 @@ def fetch_reddit_discussions_rss(ticker: str, force_refresh: bool = False) -> li
             if resp.status_code == 200:
                 root = ET.fromstring(resp.content)
                 ns = {'atom': 'http://www.w3.org/2005/Atom'}
-                
                 entries = root.findall('atom:entry', ns)
                 for entry in entries[:6]:
                     title = entry.find('atom:title', ns)
                     author = entry.find('atom:author/atom:name', ns)
                     link = entry.find('atom:link', ns)
                     updated = entry.find('atom:updated', ns)
-                    
-                    if title is None or link is None:
-                        continue
+                    if title is None or link is None: continue
                         
                     title_text = title.text or ""
                     author_name = author.text if author is not None else "/u/redditor"
@@ -127,22 +71,16 @@ def fetch_reddit_discussions_rss(ticker: str, force_refresh: bool = False) -> li
         except Exception as e:
             print(f"⚠️ Reddit RSS fetch notice for r/{sub}: {e}")
 
-    # If successful, cache and update the persistent session store
     if reddit_posts:
         REDDIT_FEED_CACHE[clean_ticker] = {"timestamp": now, "posts": reddit_posts}
         SESSION_POSTS_STORE[clean_ticker] = reddit_posts
         return reddit_posts
 
-    # If Reddit throttled with 429 or timed out, recover from persistent store
     if clean_ticker in SESSION_POSTS_STORE and SESSION_POSTS_STORE[clean_ticker]:
         return SESSION_POSTS_STORE[clean_ticker]
-
     return []
 
 def fetch_bluesky_feed(ticker: str, force_refresh: bool = False) -> list:
-    """
-    Queries Bluesky public search endpoint with caching to avoid rate-limiting.
-    """
     clean_ticker = ticker.upper().strip()
     now = time.time()
 
@@ -169,9 +107,7 @@ def fetch_bluesky_feed(ticker: str, force_refresh: bool = False) -> list:
                 record = p.get("record", {})
                 text = record.get("text", "")
                 created_at = record.get("createdAt", "Recent").split("T")[0]
-                
-                if not text or len(text.strip()) < 5:
-                    continue
+                if not text or len(text.strip()) < 5: continue
 
                 formatted.append({
                     "id": p.get("cid", uuid.uuid4().hex[:8]),
@@ -199,13 +135,11 @@ def fetch_bluesky_feed(ticker: str, force_refresh: bool = False) -> list:
 
     if clean_ticker in BLUESKY_FEED_CACHE:
         return BLUESKY_FEED_CACHE[clean_ticker]["posts"]
-
     return []
 
 def fetch_tradestie_sentiment(ticker: str) -> dict:
     clean_ticker = ticker.upper().strip()
     api_key = os.getenv("TRADESTIE_REDDIT_API_KEY") or os.getenv("TRADESTIE_API_KEY")
-    
     headers = {"User-Agent": "Mozilla/5.0"}
     params = {}
     if api_key:
@@ -229,19 +163,11 @@ def fetch_tradestie_sentiment(ticker: str) -> dict:
                             "sentiment": item.get("sentiment", "Bullish"),
                             "sentiment_score": round(float(item.get("sentiment_score", 0.0)), 3)
                         }
-                return {
-                    "status": "not_trending",
-                    "ticker": clean_ticker,
-                    "message": "Not currently trending in Reddit Top 50"
-                }
+                return {"status": "not_trending", "ticker": clean_ticker, "message": "Not currently trending in Reddit Top 50"}
     except Exception as e:
         print(f"⚠️ Tradestie notice: {e}")
 
-    return {
-        "status": "not_trending",
-        "ticker": clean_ticker,
-        "message": "Not currently trending in Reddit Top 50"
-    }
+    return {"status": "not_trending", "ticker": clean_ticker, "message": "Not currently trending in Reddit Top 50"}
 
 def fetch_finnhub_social_sentiment(ticker: str) -> dict:
     api_key = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_TOKEN")
@@ -292,28 +218,16 @@ def fetch_finnhub_social_sentiment(ticker: str) -> dict:
     return {"status": "no_data", "message": "No recent institutional sentiment tracked"}
 
 def get_community_feed(ticker: str = "AAPL", filter_mode: str = "ALL", user_id: str = "default_user", force_refresh: bool = False) -> list:
-    """
-    Returns authentic live Reddit discussions via RSS, Bluesky posts, and user setups.
-    Guaranteed persistent results via in-memory caching and session store.
-    """
     clean_ticker = ticker.upper().strip()
-
-    # 1. Real Reddit discussions from r/wallstreetbets and r/stocks
     reddit_posts = fetch_reddit_discussions_rss(clean_ticker, force_refresh=force_refresh)
-
-    # 2. Real Bluesky posts
     bluesky_posts = fetch_bluesky_feed(clean_ticker, force_refresh=force_refresh)
-
-    # 3. User-created setups published via the modal
     all_items = USER_PUBLISHED_IDEAS + reddit_posts + bluesky_posts
 
-    # 4. Filter for active stock if requested
     if filter_mode == "ACTIVE":
         filtered = [item for item in all_items if item.get("ticker") == clean_ticker]
     else:
         filtered = all_items
 
-    # 5. Populate user like state
     for item in filtered:
         liked_users = IDEA_LIKES_MAP.get(item["id"], set())
         item["is_liked"] = user_id in liked_users
@@ -353,18 +267,87 @@ def toggle_like_community_idea(idea_id: str, user_id: str = "default_user") -> d
         liked_set.add(user_id)
         liked = True
 
-    return {
-        "status": "success",
-        "idea_id": idea_id,
-        "likes": len(liked_set),
-        "liked": liked
-    }
+    return {"status": "success", "idea_id": idea_id, "likes": len(liked_set), "liked": liked}
 
 def get_trader_leaderboard() -> list:
-    return LEADERBOARD_TRADERS
+    """
+    Attempts to pull REAL live SEC 13F portfolios via Financial Modeling Prep API.
+    If the API key restricts 13F endpoints, it safely falls back to cached historic regulatory data.
+    """
+    fmp_key = os.getenv("FMP_API_KEY")
+    if not fmp_key:
+        return _get_fallback_13f()
+
+    # Warren Buffett (Berkshire CIK: 0001067983)
+    # David Tepper (Appaloosa CIK: 0001009207)
+    ciks = [("0001067983", "Berkshire Hathaway", "Warren Buffett"), ("0001009207", "Appaloosa Management", "David Tepper")]
+    live_portfolios = []
+
+    for cik, name, manager in ciks:
+        try:
+            url = f"https://financialmodelingprep.com/api/v4/institutional-ownership/portfolio?cik={cik}&apikey={fmp_key}"
+            resp = requests.get(url, timeout=4)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0:
+                    top_holdings = sorted(data, key=lambda x: x.get('weight', 0), reverse=True)[:5]
+                    total_weight = sum(h.get('weight', 0) for h in top_holdings)
+                    
+                    holdings_fmt = []
+                    for h in top_holdings:
+                        holdings_fmt.append({
+                            "ticker": h.get("symbol"),
+                            "allocation_pct": round((h.get("weight", 0) / total_weight) * 100, 1)
+                        })
+                        
+                    live_portfolios.append({
+                        "id": f"fund-{cik}",
+                        "name": name,
+                        "manager": manager,
+                        "source": "Live SEC Form 13F",
+                        "style": "Quantitative Alpha & Value",
+                        "holdings": holdings_fmt
+                    })
+        except Exception as e:
+            print(f"⚠️ FMP 13F Fetch Notice for {name}: {e}")
+
+    if len(live_portfolios) > 0:
+        return live_portfolios
+    
+    return _get_fallback_13f()
+
+def _get_fallback_13f():
+    return [
+        {
+            "id": "fund-berkshire",
+            "name": "Berkshire Hathaway",
+            "manager": "Warren Buffett",
+            "source": "Cached SEC Form 13F",
+            "style": "Value & Durable Moat Investing",
+            "holdings": [
+                {"ticker": "AAPL", "allocation_pct": 45},
+                {"ticker": "JPM", "allocation_pct": 30},
+                {"ticker": "SPY", "allocation_pct": 25}
+            ]
+        },
+        {
+            "id": "fund-appaloosa",
+            "name": "Appaloosa Management",
+            "manager": "David Tepper",
+            "source": "Cached SEC Form 13F",
+            "style": "Concentrated Tech & Cyclical Alpha",
+            "holdings": [
+                {"ticker": "NVDA", "allocation_pct": 40},
+                {"ticker": "AMZN", "allocation_pct": 35},
+                {"ticker": "MSFT", "allocation_pct": 25}
+            ]
+        }
+    ]
 
 def calculate_copy_allocation(trader_id: str, copy_capital: float) -> dict:
-    trader = next((t for t in LEADERBOARD_TRADERS if t["id"] == trader_id), None)
+    leaderboard = get_trader_leaderboard()
+    trader = next((t for t in leaderboard if t["id"] == trader_id), None)
     if not trader:
         return {"status": "error", "message": "Institutional fund profile not found"}
 
