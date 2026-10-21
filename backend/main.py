@@ -44,6 +44,7 @@ from portfolio_optimization.service import optimize_black_litterman
 from db.mongodb import connect_to_mongo, close_mongo_connection
 from api.auth import router as auth_router
 from api.sync import router as sync_router
+from api.metrics import router as metrics_router
 
 
 app = FastAPI(title="AI Stock Intelligence API - Enterprise Production Tier", version="2.9.5")
@@ -58,6 +59,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(sync_router)
+app.include_router(metrics_router)
 
 @app.on_event("startup")
 async def on_startup():

@@ -7,6 +7,7 @@
   <link rel="icon" href="./public/growth.png" type="image/png">
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="metrics.css">
 </head>
 <body>
 
@@ -405,6 +406,44 @@
             </div>
           </div>
         </section>
+
+        <section class="card" id="accuracy-metrics-card">
+          <div class="card-header">
+            <h3>🎯 Model Accuracy & Validation</h3>
+            <span id="acc-badge" class="acc-badge">Loading...</span>
+          </div>
+          <div class="acc-grid">
+            <div class="acc-tile">
+              <span class="m-label">Directional Accuracy</span>
+              <span class="m-val" id="acc-val">--</span>
+              <span class="acc-hint" id="acc-sub"></span>
+            </div>
+            <div class="acc-tile">
+              <span class="m-label">Prediction Error (RMSE)</span>
+              <span class="m-val" id="acc-rmse">--</span>
+              <span class="acc-hint" id="acc-rmse-sub"></span>
+            </div>
+            <div class="acc-tile">
+              <span class="m-label">Call Precision (Up / Down)</span>
+              <span class="m-val" id="acc-prec">--</span>
+              <span class="acc-hint">How often a predicted rise or fall was correct.</span>
+            </div>
+            <div class="acc-tile">
+              <span class="m-label">90% Interval Coverage</span>
+              <span class="m-val" id="acc-cov">--</span>
+              <span class="acc-hint" id="acc-cov-sub"></span>
+            </div>
+          </div>
+          <div class="acc-bar">
+            <div class="acc-bar-fill" id="acc-bar-fill"></div>
+            <div class="acc-bar-mark" style="left:50%"><span>50% coin flip</span></div>
+            <div class="acc-bar-mark" id="acc-bar-base" style="left:52%"><span>baseline</span></div>
+          </div>
+          <div class="acc-tiers" id="acc-tiers"></div>
+          <div class="acc-meta" id="acc-meta"></div>
+          <p class="acc-note" id="acc-note"></p>
+        </section>
+
 
       </div>
 
@@ -1054,6 +1093,7 @@
   <script src="auth.js"></script>
   <script src="explain.js"></script>
   <script src="gate.js"></script>
+  <script src="metrics.js"></script>
   <script src="animations.js"></script>
 </body>
 </html>
